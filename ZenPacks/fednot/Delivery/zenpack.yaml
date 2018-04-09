@@ -1,1 +1,73 @@
 name: ZenPacks.fednot.Delivery
+
+zProperties:
+  zSpringBootPort:
+    category: SpringBoot
+    type: int
+    default: 8105
+
+class_relationships:
+  - SpringBootDevice 1:MC SpringBootApplication
+  - SpringBootApplication 1:MC SpringBootComponent
+  - SpringBootApplication 1:MC SpringBootJob
+  - SpringBootApplication 1:MC SpringBootOrder
+  - SpringBootApplication 1:MC SpringBootJVM
+
+classes:
+  SpringBootDevice:
+    base: [zenpacklib.Device]
+    label: SpringBoot Device
+
+  SpringBootApplication:
+    base: [zenpacklib.Component]
+    label: Application
+    properties:
+      DEFAULTS:
+        grid_display: false
+      serviceName:
+        label: serviceName
+        grid_display: true
+        label_width: 300
+      healthURL:
+        label: Health URL
+        grid_display: true
+        label_width: 300
+      serviceURL:
+        label: Service URL
+        grid_display: true
+        label_width: 300
+
+  SpringBootComponent:
+    base: [zenpacklib.Component]
+    label: Application Component
+    properties:
+      DEFAULTS:
+        grid_display: false
+      status:
+        label: Status
+        grid_display: true
+
+  SpringBootJob:
+    base: [zenpacklib.Component]
+    label: Application Job
+    properties:
+      DEFAULTS:
+        grid_display: false
+      jobName:
+        label: Job Name
+        grid_display: true
+
+  SpringBootOrder:
+    base: [zenpacklib.Component]
+    label: Application Order
+    properties:
+      DEFAULTS:
+        grid_display: false
+
+  SpringBootJVM:
+    base: [zenpacklib.Component]
+    label: Application JVM
+    properties:
+      DEFAULTS:
+        grid_display: false
+
