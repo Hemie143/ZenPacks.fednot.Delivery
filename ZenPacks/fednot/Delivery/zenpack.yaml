@@ -5,6 +5,9 @@ zProperties:
     category: SpringBoot
     type: int
     default: 8105
+  zSpringBootApplications:
+    category: SpringBoot
+    type: lines
 
 class_relationships:
   - SpringBootDevice 1:MC SpringBootApplication
@@ -30,12 +33,10 @@ classes:
         label_width: 300
       healthURL:
         label: Health URL
-        grid_display: true
-        label_width: 300
+        grid_display: false
       serviceURL:
         label: Service URL
-        grid_display: true
-        label_width: 300
+        grid_display: false
 
   SpringBootComponent:
     base: [zenpacklib.Component]
@@ -70,4 +71,30 @@ classes:
     properties:
       DEFAULTS:
         grid_display: false
+
+device_classes:
+  /Server/Linux/Applications:
+    zProperties:
+      zPythonClass: ZenPacks.fednot.Delivery.SpringBootDevice
+      zCollectorPlugins:
+        - fednot.json.Delivery
+      zDeviceTemplates:
+        - Device
+      # TODO : Add more templates
+
+    templates:
+      SpringBootApplication:
+        targetPythonClass: ZenPacks.fednot.Delivery.SpringBootApplication
+
+      SpringBootComponent:
+        targetPythonClass: ZenPacks.fednot.Delivery.SpringBootComponent
+
+      SpringBootJob:
+        targetPythonClass: ZenPacks.fednot.Delivery.SpringBootJob
+
+      SpringBootOrder:
+        targetPythonClass: ZenPacks.fednot.Delivery.SpringBootOrder
+
+      SpringBootJVM:
+        targetPythonClass: ZenPacks.fednot.Delivery.SpringBootJVM
 
