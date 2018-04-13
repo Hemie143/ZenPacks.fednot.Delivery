@@ -24,9 +24,9 @@ class Delivery(PythonPlugin):
     deviceProperties = PythonPlugin.deviceProperties + requiredProperties
 
     queries = [
-        ['health', 'http://{}:{}/{}/health'],
-        ['metricsJob', 'http://{}:{}/{}/metrics/job'],
-        ['metricsOrder', 'http://{}:{}/{}/metrics/order'],
+        ['health', 'http://{}:{}/{}/management/health'],
+        ['metricsJob', 'http://{}:{}/{}/management/metrics/job'],
+        ['metricsOrder', 'http://{}:{}/{}/management/metrics/order'],
     ]
 
     @staticmethod
@@ -41,6 +41,7 @@ class Delivery(PythonPlugin):
         applications = getattr(device, 'zSpringBootApplications', [])
 
         # TODO: fix this later when SBA is setup to list applications from a generic URL
+        # Use http://{}:{}/sba/api/applications
         app_dict = []
         for app in applications:
             app_dict.append('{{"name":"{}"}}'.format(app))
@@ -58,10 +59,13 @@ class Delivery(PythonPlugin):
         for app in applications:
             for query in self.queries:
                 url = query[1].format(ip_address, port, app)
+                # TODO: move iv headers in Config Properties
                 d = sem.run(getPage, url,
                             headers={
                                 "Accept": "application/json",
                                 "User-Agent": "Mozilla/3.0Gold",
+                                "iv-groups": "GRP_MANAGEMENT",
+                                "iv-user": "cs_monitoring",
                             },
                             )
                 d.addCallback(self.add_tag, '{}_{}'.format(app, query[0]))
@@ -116,8 +120,9 @@ class Delivery(PythonPlugin):
                     if comp_name == 'status':
                         continue
                     om_comp = ObjectMap()
-                    om_comp.id = self.prepId(comp_name)
+                    om_comp.id = self.prepId('{}_{}'.format(app_name, comp_name))
                     om_comp.title = comp_name
+                    om_comp.serviceName = app_name
                     comp_maps.append(om_comp)
 
             job_maps = []
@@ -126,8 +131,9 @@ class Delivery(PythonPlugin):
                 jobs_list = set([d['jobName'] for d in job_data])
                 for job in jobs_list:
                     om_job = ObjectMap()
-                    om_job.id = self.prepId(job)
+                    om_job.id = self.prepId('{}_{}'.format(app_name, job))
                     om_job.title = job
+                    om_job.serviceName = app_name
                     job_maps.append(om_job)
 
             rm_comp.append(RelationshipMap(relname='springBootComponents',
@@ -142,6 +148,7 @@ class Delivery(PythonPlugin):
             om_order = ObjectMap()
             om_order.id = self.prepId(app_name)
             om_order.title = app_name
+            om_order.serviceName = app_name
             rm_misc.append(RelationshipMap(relname='springBootOrders',
                                            modname='ZenPacks.fednot.Delivery.SpringBootOrder',
                                            compname=comp_app,
@@ -150,6 +157,7 @@ class Delivery(PythonPlugin):
             om_jvm = ObjectMap()
             om_jvm.id = self.prepId(app_name)
             om_jvm.title = app_name
+            om_jvm.serviceName = app_name
             rm_misc.append(RelationshipMap(relname='springBootJVMs',
                                            modname='ZenPacks.fednot.Delivery.SpringBootJVM',
                                            compname=comp_app,

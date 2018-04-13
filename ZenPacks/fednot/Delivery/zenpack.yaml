@@ -24,8 +24,20 @@ classes:
   SpringBootApplication:
     base: [zenpacklib.Component]
     label: Application
+    monitoring_templates: [SpringBootApplication]
     properties:
       DEFAULTS:
+        grid_display: false
+      status:
+        label: Status
+        type: string
+        datapoint: health_status
+        renderer: Zenoss.render.severity
+        grid_display: true
+        label_width: 40
+      statusString:
+        label: Status Label
+        type: string
         grid_display: false
       serviceName:
         label: serviceName
@@ -41,12 +53,25 @@ classes:
   SpringBootComponent:
     base: [zenpacklib.Component]
     label: Application Component
+    monitoring_templates: [SpringBootComponent]
     properties:
       DEFAULTS:
         grid_display: false
       status:
         label: Status
+        type: string
+        datapoint: health_status
+        renderer: Zenoss.render.severity
         grid_display: true
+        label_width: 40
+      statusString:
+        label: Status Label
+        type: string
+        grid_display: false
+      serviceName:
+        label: serviceName
+        grid_display: true
+        label_width: 300
 
   SpringBootJob:
     base: [zenpacklib.Component]
@@ -57,6 +82,21 @@ classes:
       jobName:
         label: Job Name
         grid_display: true
+      status:
+        label: Status
+        type: string
+        datapoint: health_status
+        renderer: Zenoss.render.severity
+        grid_display: true
+        label_width: 40
+      statusString:
+        label: Status Label
+        type: string
+        grid_display: false
+      serviceName:
+        label: serviceName
+        grid_display: true
+        label_width: 300
 
   SpringBootOrder:
     base: [zenpacklib.Component]
@@ -64,6 +104,10 @@ classes:
     properties:
       DEFAULTS:
         grid_display: false
+      serviceName:
+        label: serviceName
+        grid_display: true
+        label_width: 300
 
   SpringBootJVM:
     base: [zenpacklib.Component]
@@ -71,6 +115,10 @@ classes:
     properties:
       DEFAULTS:
         grid_display: false
+      serviceName:
+        label: serviceName
+        grid_display: true
+        label_width: 300
 
 device_classes:
   /Server/Linux/Applications:
@@ -85,16 +133,55 @@ device_classes:
     templates:
       SpringBootApplication:
         targetPythonClass: ZenPacks.fednot.Delivery.SpringBootApplication
+        datasources:
+          health:
+            type: Python
+            plugin_classname: ZenPacks.fednot.Delivery.dsplugins.health.Health
+            datapoints:
+              status:
+                rrdtype: GAUGE
 
       SpringBootComponent:
         targetPythonClass: ZenPacks.fednot.Delivery.SpringBootComponent
+        datasources:
+          health:
+            type: Python
+            plugin_classname: ZenPacks.fednot.Delivery.dsplugins.health.Health
+            datapoints:
+              status:
+                rrdtype: GAUGE
 
       SpringBootJob:
         targetPythonClass: ZenPacks.fednot.Delivery.SpringBootJob
+        datasources:
+          health:
+            type: Python
+            plugin_classname: ZenPacks.fednot.Delivery.dsplugins.jobs.Jobs
+            datapoints:
+              status:
+                rrdtype: GAUGE
 
       SpringBootOrder:
         targetPythonClass: ZenPacks.fednot.Delivery.SpringBootOrder
+        datasources:
+          orders:
+            type: Python
+            plugin_classname: ZenPacks.fednot.Delivery.dsplugins.orders.Orders
+            datapoints:
+              uploaded:
+                rrdtype: GAUGE
 
       SpringBootJVM:
         targetPythonClass: ZenPacks.fednot.Delivery.SpringBootJVM
+        datasources:
+          jvm:
+            type: Python
+            plugin_classname: ZenPacks.fednot.Delivery.dsplugins.jvm.JVM
+            datapoints:
+              classes_loaded:
+                rrdtype: GAUGE
+              classes_unloaded:
+                rrdtype: GAUGE
+              classes_loaded_total:
+                rrdtype: GAUGE
 
