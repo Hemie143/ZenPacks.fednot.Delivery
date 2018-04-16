@@ -1,10 +1,11 @@
 # stdlib Imports
 import json
 import logging
+import re
 import base64
 
 # Twisted Imports
-from twisted.internet.defer import returnValue, DeferredSemaphore, DeferredList
+from twisted.internet.defer import returnValue, DeferredSemaphore, DeferredList, inlineCallbacks
 from twisted.web.client import getPage
 
 # Zenoss imports
@@ -34,7 +35,7 @@ class Health(PythonDataSourcePlugin):
     @classmethod
     def config_key(cls, datasource, context):
         log.info('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
-                                                     context.serviceName, 'delivery_health'))
+                                                     context.serviceName, 'SB_health'))
 
         # log.info('config_key datasource: {}'.format(datasource.__dict__))
         # log.info('config_key context: {}'.format(context.__dict__))
@@ -45,13 +46,13 @@ class Health(PythonDataSourcePlugin):
             context.device().id,
             datasource.getCycleTime(context),
             context.serviceName,
-            'delivery_health'
+            'SB_health'
         )
 
     @classmethod
     def params(cls, datasource, context):
         log.debug('Starting Delivery health params')
-        params = {'objectName': context.serviceName}
+        params = {'serviceName': context.serviceName}
         log.debug('params is {}'.format(params))
         return params
 
@@ -66,8 +67,11 @@ class Health(PythonDataSourcePlugin):
         deferreds = []
         sem = DeferredSemaphore(1)
         for datasource in config.datasources:
-            object_name = datasource.params['objectName']
-            url = self.urls[datasource.datasource].format(ip_address, datasource.zSpringBootPort, object_name)
+            service_name = datasource.params['serviceName']
+            log.debug('collect datasource: {}'.format(datasource.datasource))
+            log.debug('collect component: {}'.format(datasource.component))
+            url = self.urls[datasource.datasource].format(ip_address, datasource.zSpringBootPort, service_name)
+            log.debug('collect URL: {}'.format(url))
             # basic_auth = base64.encodestring('{}:{}'.format(datasource.zJolokiaUsername, datasource.zJolokiaPassword))
             # auth_header = "Basic " + basic_auth.strip()
             # TODO : move headers to Config properties
@@ -94,14 +98,54 @@ class Health(PythonDataSourcePlugin):
                 ds = ddata[0]
                 metrics = json.loads(ddata[1])
                 ds_data[ds] = metrics
-        log.debug('Success - ds_data is {}'.format(ds_data))
 
-        for datasource in config.datasources:
-            component = prepId(datasource.component)
-            log.debug('Success - component is {}'.format(component))
-            health = ds_data['health']
-            log.debug('Success - health is {}'.format(health))
-
+        health_data = ds_data.get('health', '')
+        if health_data:
+            for datasource in config.datasources:
+                componentID = prepId(datasource.component)
+                service_name = datasource.params['serviceName']
+                if componentID == service_name:
+                    component_label = service_name
+                    health = health_data.get('status', '')
+                else:
+                    r = re.match('{}_?(.*)'.format(service_name), componentID)
+                    component_label = r.group(1)
+                    health = health_data.get(component_label, '')
+                    if health:
+                        health = health.get('status')
+                if health.upper() == "UP":
+                    data['values'][componentID]['status'] = 0
+                    data['events'].append({
+                        'device': config.id,
+                        'component': componentID,
+                        'severity': 0,
+                        'eventKey': 'SBHealth',
+                        'eventClassKey': 'SBHealth',
+                        'summary': 'Application {} - Status is Up'.format(component_label),
+                        'eventClass': '/Status',
+                        })
+                elif health.upper() == "DOWN":
+                    data['values'][componentID]['status'] = 5
+                    data['events'].append({
+                        'device': config.id,
+                        'component': componentID,
+                        'severity': 5,
+                        'eventKey': 'SBHealth',
+                        'eventClassKey': 'SBHealth',
+                        'summary': 'Application {} - Status is Down'.format(component_label),
+                        'eventClass': '/Status',
+                        })
+                else:
+                    data['values'][componentID]['status'] = 3
+                    data['events'].append({
+                        'device': config.id,
+                        'component': componentID,
+                        'severity': 3,
+                        'eventKey': 'SBHealth',
+                        'eventClassKey': 'SBHealth',
+                        'summary': 'Application {} - Status is {}'.format(component_label, health.title()),
+                        'eventClass': '/Status',
+                        })
         return data
 
     def onError(self, result, config):

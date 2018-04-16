@@ -42,7 +42,7 @@ classes:
       serviceName:
         label: serviceName
         grid_display: true
-        label_width: 300
+        label_width: 350
       healthURL:
         label: Health URL
         grid_display: false
@@ -71,7 +71,7 @@ classes:
       serviceName:
         label: serviceName
         grid_display: true
-        label_width: 300
+        label_width: 350
 
   SpringBootJob:
     base: [zenpacklib.Component]
@@ -96,7 +96,7 @@ classes:
       serviceName:
         label: serviceName
         grid_display: true
-        label_width: 300
+        label_width: 350
 
   SpringBootOrder:
     base: [zenpacklib.Component]

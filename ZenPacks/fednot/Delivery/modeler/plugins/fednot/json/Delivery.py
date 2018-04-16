@@ -33,6 +33,8 @@ class Delivery(PythonPlugin):
     def add_tag(result, label):
         return tuple((label, result))
 
+    # TODO: Use Collect function to define whether Delivery is present on server
+
     @inlineCallbacks
     def collect(self, device, log):
         log.debug('{}: Modeling collect'.format(device.id))
