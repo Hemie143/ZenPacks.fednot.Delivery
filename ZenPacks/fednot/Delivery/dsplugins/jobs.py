@@ -2,7 +2,10 @@
 import json
 import logging
 import re
+import datetime
+import time
 import base64
+from operator import itemgetter
 
 # Twisted Imports
 from twisted.internet.defer import returnValue, DeferredSemaphore, DeferredList, inlineCallbacks
@@ -13,18 +16,17 @@ from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource import PythonD
 from Products.ZenUtils.Utils import prepId
 
 # Setup logging
-log = logging.getLogger('zen.PythonDeliveryHealth')
+log = logging.getLogger('zen.PythonDeliveryJobs')
 
 
-class Health(PythonDataSourcePlugin):
-
+class Jobs(PythonDataSourcePlugin):
     proxy_attributes = (
         'zSpringBootPort',
         'zSpringBootApplications',
     )
 
     urls = {
-        'health': 'http://{}:{}/{}/management/health',
+        'health': 'http://{}:{}/{}/management/metrics/job',
     }
 
     @staticmethod
@@ -34,19 +36,21 @@ class Health(PythonDataSourcePlugin):
     # TODO: check config_key broker
     @classmethod
     def config_key(cls, datasource, context):
-        log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
-                                                     context.serviceName, 'SB_health'))
+        log.info('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
+                                                    context.serviceName, 'SB_Job'))
+
+        log.info('config_key context: {}'.format(context.serviceName))
 
         return (
             context.device().id,
             datasource.getCycleTime(context),
             context.serviceName,
-            'SB_health'
+            'SB_Job'
         )
 
     @classmethod
     def params(cls, datasource, context):
-        log.debug('Starting Delivery health params')
+        log.debug('Starting Delivery Jobs params')
         params = {'serviceName': context.serviceName}
         log.debug('params is {}'.format(params))
         return params
@@ -83,7 +87,7 @@ class Health(PythonDataSourcePlugin):
         return DeferredList(deferreds)
 
     def onSuccess(self, result, config):
-        log.debug('Success - result is {}'.format(result))
+        # log.debug('Success job - result is {}'.format(result))
 
         data = self.new_data()
 
@@ -95,54 +99,29 @@ class Health(PythonDataSourcePlugin):
                 ds_data[ds] = metrics
 
         health_data = ds_data.get('health', '')
-        if health_data:
-            for datasource in config.datasources:
-                componentID = prepId(datasource.component)
-                service_name = datasource.params['serviceName']
-                if componentID == service_name:
-                    component_label = service_name
-                    health = health_data.get('status', '')
-                else:
-                    r = re.match('{}_?(.*)'.format(service_name), componentID)
-                    component_label = r.group(1)
-                    health = health_data.get(component_label, '')
-                    if health:
-                        health = health.get('status')
-                # TODO: Add status OUT_OF_SERVICE & UNKNOWN
-                # TODO: Correct eventClass
-                if health.upper() == "UP":
-                    data['values'][componentID]['status'] = 0
-                    data['events'].append({
-                        'device': config.id,
-                        'component': componentID,
-                        'severity': 0,
-                        'eventKey': 'SBHealth',
-                        'eventClassKey': 'SBHealth',
-                        'summary': 'Application {} - Status is Up'.format(component_label),
-                        'eventClass': '/Status',
-                        })
-                elif health.upper() == "DOWN":
-                    data['values'][componentID]['status'] = 5
-                    data['events'].append({
-                        'device': config.id,
-                        'component': componentID,
-                        'severity': 5,
-                        'eventKey': 'SBHealth',
-                        'eventClassKey': 'SBHealth',
-                        'summary': 'Application {} - Status is Down'.format(component_label),
-                        'eventClass': '/Status',
-                        })
-                else:
-                    data['values'][componentID]['status'] = 3
-                    data['events'].append({
-                        'device': config.id,
-                        'component': componentID,
-                        'severity': 3,
-                        'eventKey': 'SBHealth',
-                        'eventClassKey': 'SBHealth',
-                        'summary': 'Application {} - Status is {}'.format(component_label, health.title()),
-                        'eventClass': '/Status',
-                        })
+        timestamp_now = int(time.time())
+        for datasource in config.datasources:
+            componentID = prepId(datasource.component)
+            service_name = datasource.params['serviceName']
+            r = re.match('{}_?(.*)'.format(service_name), componentID)
+            component_label = r.group(1)
+            log.debug('comp: {}'.format(component_label))
+            job_list = [d for d in health_data if d['jobName'] == component_label]
+            # log.debug('job_list: {}'.format(job_list))
+            for job in job_list:
+                rundate = job['runDate']
+                datetime_obj = datetime.datetime(rundate['year'], rundate['monthValue'], rundate['dayOfMonth'],
+                                                 rundate['hour'], rundate['minute'], rundate['second'])
+                job['timestamp'] = int(datetime_obj.strftime('%s'))
+            last_job = sorted(job_list, key=itemgetter('timestamp'), reverse=True)[0]
+            log.debug('last_job: {}'.format(last_job))
+            job_status = last_job['status']
+            job_age = timestamp_now - last_job['timestamp']
+
+        # log.debug('Success job - result is {}'.format(len(ds_data)))
+
+        # log.debug('Success job - result is {}'.format(ds_data))
+
         return data
 
     def onError(self, result, config):

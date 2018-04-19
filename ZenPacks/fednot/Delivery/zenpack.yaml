@@ -76,6 +76,7 @@ classes:
   SpringBootJob:
     base: [zenpacklib.Component]
     label: Application Job
+    monitoring_templates: [SpringBootJob]
     properties:
       DEFAULTS:
         grid_display: false
@@ -101,6 +102,7 @@ classes:
   SpringBootOrder:
     base: [zenpacklib.Component]
     label: Application Order
+    monitoring_templates: [SpringBootOrder]
     properties:
       DEFAULTS:
         grid_display: false
@@ -112,6 +114,7 @@ classes:
   SpringBootJVM:
     base: [zenpacklib.Component]
     label: Application JVM
+    monitoring_templates: [SpringBootJVM]
     properties:
       DEFAULTS:
         grid_display: false
