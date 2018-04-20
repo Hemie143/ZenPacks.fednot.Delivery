@@ -19,14 +19,14 @@ from Products.ZenUtils.Utils import prepId
 log = logging.getLogger('zen.PythonDeliveryJobs')
 
 
-class Jobs(PythonDataSourcePlugin):
+class Orders(PythonDataSourcePlugin):
     proxy_attributes = (
         'zSpringBootPort',
         'zSpringBootApplications',
     )
 
     urls = {
-        'job': 'http://{}:{}/{}/management/metrics/job',
+        'order': 'http://{}:{}/{}/management/metrics/order',
     }
 
     @staticmethod
@@ -42,7 +42,7 @@ class Jobs(PythonDataSourcePlugin):
             context.device().id,
             datasource.getCycleTime(context),
             context.serviceName,
-            'SB_Job'
+            'SB_Order'
         )
 
     @classmethod
@@ -53,7 +53,7 @@ class Jobs(PythonDataSourcePlugin):
         return params
 
     def collect(self, config):
-        log.debug('Starting Delivery health collect')
+        log.debug('Starting Delivery orders collect')
         # TODO : cleanup job collect
 
         ip_address = config.manageIp
@@ -88,12 +88,7 @@ class Jobs(PythonDataSourcePlugin):
         # log.debug('Success job - result is {}'.format(result))
         # TODO : cleanup job onSuccess
 
-        status_maps = {'DONE': [0, 'Job {} is OK'],
-                       'ERROR': [5, 'Job {} is in error']
-                       }
-
         data = self.new_data()
-
         ds_data = {}
         for success, ddata in result:
             if success:
@@ -101,50 +96,22 @@ class Jobs(PythonDataSourcePlugin):
                 metrics = json.loads(ddata[1])
                 ds_data[ds] = metrics
 
-        jobs_data = ds_data.get('job', '')
-        timestamp_now = int(time.time())    # UTC
-        # log.debug('timestamp_now: {}'.format(timestamp_now))
-        for datasource in config.datasources:
-            componentID = prepId(datasource.component)
-            service_name = datasource.params['serviceName']
-            r = re.match('{}_?(.*)'.format(service_name), componentID)
-            component_label = r.group(1)
-            # log.debug('comp: {}'.format(component_label))
-            job_list = [d for d in jobs_data if d['jobName'] == component_label]
-            # log.debug('job_list: {}'.format(job_list))
-            for job in job_list:
-                rundate = job['runDate']
-                # UTC
-                datetime_obj = datetime.datetime(rundate['year'], rundate['monthValue'], rundate['dayOfMonth'],
-                                                 rundate['hour'], rundate['minute'], rundate['second'])
-                job['timestamp'] = int(datetime_obj.strftime('%s'))
-            # log.debug('job_list: {}'.format(job_list))
-            # TODO: Check that job_list isn't empty
-            last_job = sorted(job_list, key=itemgetter('timestamp'), reverse=True)[0]
-            # log.debug('last_job: {}'.format(last_job))
-            job_status = last_job['status']
-            job_age = (timestamp_now - last_job['timestamp']) / 60
-            # log.debug('job_status: {}'.format(job_status))
-            # log.debug('timestamp_now: {}'.format(timestamp_now))
-            # log.debug('timestamp_job: {}'.format(last_job['timestamp']))
-            # log.debug('job_age      : {}'.format(job_age))
-            # log.debug('job_age2: {}'.format((timestamp_now - job_age) / 60))
-            job_status_map = status_maps.get(job_status, [3, 'Job {} has an unknown issue'])
-            data['values'][componentID]['status'] = job_status_map[0]
-            data['events'].append({
-                'device': config.id,
-                'component': componentID,
-                'severity': job_status_map[0],
-                'eventKey': 'JobHealth',
-                'eventClassKey': 'JobHealth',
-                'summary': job_status_map[1].format(componentID),
-                'message': job_status_map[1].format(componentID),
-                'eventClass': '/Status/App',
-                'zipName': last_job['zipName']
-            })
-            data['values'][componentID]['age'] = job_age
-            data['values'][componentID]['dataCount'] = last_job['dataCount']
-            data['values'][componentID]['missingCount'] = last_job['missingCount']
+        orders_data = ds_data.get('order', '')
+        log.debug('Success orders - orders_data is {}'.format(orders_data))
+        ds0 = config.datasources[0]
+        componentID = prepId(ds0.component)
+        log.debug('componentID: {}'.format(componentID))
+        log.debug('points: {}'.format(ds0.points))
+        for point in ds0.points:
+            log.debug('point: {}'.format(point.id))
+        total_check = 0
+        for order in orders_data:
+            order_status = str(order['status'])
+            order_value = order['count']
+            data['values'][componentID][order_status.lower()] = order_value
+            if order_status != 'TOTAL':
+                total_check += order_value
+        data['values'][componentID]['total_check'] = total_check
 
         # log.debug('Success job - result is {}'.format(len(ds_data)))
 

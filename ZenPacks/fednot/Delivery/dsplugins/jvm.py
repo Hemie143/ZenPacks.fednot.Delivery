@@ -19,14 +19,14 @@ from Products.ZenUtils.Utils import prepId
 log = logging.getLogger('zen.PythonDeliveryJobs')
 
 
-class Jobs(PythonDataSourcePlugin):
+class JVM(PythonDataSourcePlugin):
     proxy_attributes = (
         'zSpringBootPort',
         'zSpringBootApplications',
     )
 
     urls = {
-        'job': 'http://{}:{}/{}/management/metrics/job',
+        'jvm': 'http://{}:{}/{}/management/metrics',
     }
 
     @staticmethod
@@ -37,12 +37,12 @@ class Jobs(PythonDataSourcePlugin):
     @classmethod
     def config_key(cls, datasource, context):
         log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
-                                                    context.serviceName, 'SB_Job'))
+                                                    context.serviceName, 'SB_JVM'))
         return (
             context.device().id,
             datasource.getCycleTime(context),
             context.serviceName,
-            'SB_Job'
+            'SB_JVM'
         )
 
     @classmethod
@@ -101,50 +101,14 @@ class Jobs(PythonDataSourcePlugin):
                 metrics = json.loads(ddata[1])
                 ds_data[ds] = metrics
 
-        jobs_data = ds_data.get('job', '')
-        timestamp_now = int(time.time())    # UTC
-        # log.debug('timestamp_now: {}'.format(timestamp_now))
-        for datasource in config.datasources:
-            componentID = prepId(datasource.component)
-            service_name = datasource.params['serviceName']
-            r = re.match('{}_?(.*)'.format(service_name), componentID)
-            component_label = r.group(1)
-            # log.debug('comp: {}'.format(component_label))
-            job_list = [d for d in jobs_data if d['jobName'] == component_label]
-            # log.debug('job_list: {}'.format(job_list))
-            for job in job_list:
-                rundate = job['runDate']
-                # UTC
-                datetime_obj = datetime.datetime(rundate['year'], rundate['monthValue'], rundate['dayOfMonth'],
-                                                 rundate['hour'], rundate['minute'], rundate['second'])
-                job['timestamp'] = int(datetime_obj.strftime('%s'))
-            # log.debug('job_list: {}'.format(job_list))
-            # TODO: Check that job_list isn't empty
-            last_job = sorted(job_list, key=itemgetter('timestamp'), reverse=True)[0]
-            # log.debug('last_job: {}'.format(last_job))
-            job_status = last_job['status']
-            job_age = (timestamp_now - last_job['timestamp']) / 60
-            # log.debug('job_status: {}'.format(job_status))
-            # log.debug('timestamp_now: {}'.format(timestamp_now))
-            # log.debug('timestamp_job: {}'.format(last_job['timestamp']))
-            # log.debug('job_age      : {}'.format(job_age))
-            # log.debug('job_age2: {}'.format((timestamp_now - job_age) / 60))
-            job_status_map = status_maps.get(job_status, [3, 'Job {} has an unknown issue'])
-            data['values'][componentID]['status'] = job_status_map[0]
-            data['events'].append({
-                'device': config.id,
-                'component': componentID,
-                'severity': job_status_map[0],
-                'eventKey': 'JobHealth',
-                'eventClassKey': 'JobHealth',
-                'summary': job_status_map[1].format(componentID),
-                'message': job_status_map[1].format(componentID),
-                'eventClass': '/Status/App',
-                'zipName': last_job['zipName']
-            })
-            data['values'][componentID]['age'] = job_age
-            data['values'][componentID]['dataCount'] = last_job['dataCount']
-            data['values'][componentID]['missingCount'] = last_job['missingCount']
+        jvm_data = ds_data.get('jvm', '')
+        log.debug('jvm_data: {}'.format(jvm_data))
+        ds0 = config.datasources[0]
+        componentID = prepId(ds0.component)
+        for point in ds0.points:
+            log.debug('point: {}'.format(point.id))
+            if point.id in jvm_data:
+                data['values'][componentID][point.id] = jvm_data[point.id]
 
         # log.debug('Success job - result is {}'.format(len(ds_data)))
 

@@ -212,12 +212,84 @@ device_classes:
       SpringBootOrder:
         targetPythonClass: ZenPacks.fednot.Delivery.SpringBootOrder
         datasources:
-          orders:
+          order:
             type: Python
             plugin_classname: ZenPacks.fednot.Delivery.dsplugins.orders.Orders
             datapoints:
+              barcode_received:
+                rrdtype: GAUGE
+              deposit_received:
+                rrdtype: GAUGE
+              missing_barcode:
+                rrdtype: GAUGE
+              missing_deposit:
+                rrdtype: GAUGE
+              missing_validation:
+                rrdtype: GAUGE
+              new:
+                rrdtype: GAUGE
+              resent:
+                rrdtype: GAUGE
+              total:
+                rrdtype: GAUGE
+              total_check:
+                rrdtype: GAUGE
               uploaded:
                 rrdtype: GAUGE
+              validation_error:
+                rrdtype: GAUGE
+              validation_received:
+                rrdtype: GAUGE
+        graphs:
+          Received:
+            units: messages
+            width: 1000
+            miny: 0
+            graphpoints:
+              Barcode received:
+                dpName: order_barcode_received
+              Deposit received:
+                dpName: order_deposit_received
+              Validation received:
+                dpName: order_validation_received
+          Missing:
+            units: messages
+            width: 1000
+            miny: 0
+            graphpoints:
+              Barcode missing:
+                dpName: order_missing_barcode
+              Deposit missing:
+                dpName: order_missing_deposit
+              Validation missing:
+                dpName: order_missing_validation
+          Errors:
+            units: messages
+            width: 1000
+            miny: 0
+            graphpoints:
+              Validation error:
+                dpName: order_validation_error
+          Totals:
+            units: messages
+            width: 1000
+            miny: 0
+            graphpoints:
+              Total:
+                dpName: order_total
+              Total Check:
+                dpName: order_total_check
+          Messages:
+            units: messages
+            width: 1000
+            miny: 0
+            graphpoints:
+              New:
+                dpName: order_new
+              Resent:
+                dpName: order_resent
+              Uploaded:
+                dpName: order_uploaded
 
       SpringBootJVM:
         targetPythonClass: ZenPacks.fednot.Delivery.SpringBootJVM
@@ -226,10 +298,72 @@ device_classes:
             type: Python
             plugin_classname: ZenPacks.fednot.Delivery.dsplugins.jvm.JVM
             datapoints:
-              classes_loaded:
+              classes:
                 rrdtype: GAUGE
-              classes_unloaded:
+              classes.loaded:
+                rrdtype: GAUGE
+              classes.unloaded:
                 rrdtype: GAUGE
               classes_loaded_total:
                 rrdtype: GAUGE
-
+              mem:
+                rrdtype: GAUGE
+              mem.free:
+                rrdtype: GAUGE
+              heap.committed:
+                rrdtype: GAUGE
+              heap.used:
+                rrdtype: GAUGE
+              heap:
+                rrdtype: GAUGE
+              systemload.average:
+                rrdtype: GAUGE
+              threads:
+                rrdtype: GAUGE
+        graphs:
+          Classes:
+            units: classes
+            width: 1000
+            miny: 0
+            graphpoints:
+              Classes:
+                dpName: jvm_classes
+              Classes Loaded:
+                dpName: jvm_classes.loaded
+              Classes Unloaded:
+                dpName: jvm_classes.unloaded
+          Memory:
+            units: bytes
+            # TODO : Memory bytes 2014
+            width: 1000
+            miny: 0
+            graphpoints:
+              Memory:
+                dpName: jvm_mem
+              Memory Free:
+                dpName: jvm_mem.free
+          Heap Memory:
+            units: bytes
+            width: 1000
+            miny: 0
+            graphpoints:
+              Heap Committed:
+                dpName: jvm_heap.committed
+              Heap Used:
+                dpName: jvm_heap.used
+              Heap:
+                dpName: jvm_heap
+          Load:
+            units: percent
+            width: 1000
+            miny: 0
+            graphpoints:
+              System Load:
+                dpName: jvm_systemload.average
+          Threads:
+            units: threads
+            width: 1000
+            miny: 0
+            graphpoints:
+              Threads:
+                dpName: jvm_threads
