@@ -110,8 +110,7 @@ class JVM(PythonDataSourcePlugin):
             if point.id in jvm_data:
                 data['values'][componentID][point.id] = jvm_data[point.id]
 
-        # log.debug('Success job - result is {}'.format(len(ds_data)))
-
+        data['values'][componentID]['mem.used'] = jvm_data['mem'] - jvm_data['mem.free']
         log.debug('Success job - data is {}'.format(data))
         return data
 

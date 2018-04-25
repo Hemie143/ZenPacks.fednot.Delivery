@@ -310,6 +310,8 @@ device_classes:
                 rrdtype: GAUGE
               mem.free:
                 rrdtype: GAUGE
+              mem.used:
+                rrdtype: GAUGE
               heap.committed:
                 rrdtype: GAUGE
               heap.used:
@@ -334,25 +336,31 @@ device_classes:
                 dpName: jvm_classes.unloaded
           Memory:
             units: bytes
-            # TODO : Memory bytes 2014
             width: 1000
             miny: 0
+            base: True
+            # TODO: Colors of graphpoints
             graphpoints:
               Memory:
                 dpName: jvm_mem
-              Memory Free:
-                dpName: jvm_mem.free
+                lineType: AREA
+              Memory Used:
+                dpName: jvm_mem.used
+                lineType: AREA
           Heap Memory:
             units: bytes
             width: 1000
             miny: 0
+            base: True
             graphpoints:
               Heap Committed:
                 dpName: jvm_heap.committed
-              Heap Used:
-                dpName: jvm_heap.used
+                lineType: AREA
               Heap:
                 dpName: jvm_heap
+              Heap Used:
+                dpName: jvm_heap.used
+                lineType: AREA
           Load:
             units: percent
             width: 1000
