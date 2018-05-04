@@ -99,11 +99,14 @@ class Health(PythonDataSourcePlugin):
             for datasource in config.datasources:
                 componentID = prepId(datasource.component)
                 service_name = datasource.params['serviceName']
-                if componentID == service_name:
+                comp_app = 'app_{}'.format(service_name)
+                if componentID == comp_app:
+                    # Application health
                     component_label = service_name
                     health = health_data.get('status', '')
                 else:
-                    r = re.match('{}_?(.*)'.format(service_name), componentID)
+                    # Application component health
+                    r = re.match('comp_{}_?(.*)'.format(service_name), componentID)
                     component_label = r.group(1)
                     health = health_data.get(component_label, '')
                     if health:

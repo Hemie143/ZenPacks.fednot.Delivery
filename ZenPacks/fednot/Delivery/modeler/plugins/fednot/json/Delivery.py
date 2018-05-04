@@ -105,11 +105,12 @@ class Delivery(PythonPlugin):
         rm = []
         rm_comp = []
         rm_job = []
+        rm_zip = []
         rm_misc = []
         for app in apps_data:
             om_app = ObjectMap()
             app_name = app.get('name', '')
-            om_app.id = self.prepId(app_name)
+            om_app.id = self.prepId('app_{}'.format(app_name))
             om_app.title = app_name
             om_app.serviceName = app_name
             app_maps.append(om_app)
@@ -122,21 +123,31 @@ class Delivery(PythonPlugin):
                     if comp_name == 'status':
                         continue
                     om_comp = ObjectMap()
-                    om_comp.id = self.prepId('{}_{}'.format(app_name, comp_name))
+                    om_comp.id = self.prepId('comp_{}_{}'.format(app_name, comp_name))
                     om_comp.title = comp_name
                     om_comp.serviceName = app_name
                     comp_maps.append(om_comp)
 
             job_maps = []
+            zip_maps = []
             job_data = self.result_data.get('{}_metricsJob'.format(app_name), '')
             if job_data:
                 jobs_list = set([d['jobName'] for d in job_data])
                 for job in jobs_list:
                     om_job = ObjectMap()
-                    om_job.id = self.prepId('{}_{}'.format(app_name, job))
+                    om_job.id = self.prepId('job_{}_{}'.format(app_name, job))
                     om_job.title = job
                     om_job.serviceName = app_name
                     job_maps.append(om_job)
+                zips_list = set([d['zipName'] for d in job_data])
+                for zipn in zips_list:
+                    if zipn is None:
+                        continue
+                    om_zip = ObjectMap()
+                    om_zip.id = self.prepId('zip_{}_{}'.format(app_name, zipn))
+                    om_zip.title = zipn
+                    om_zip.zipName = zipn
+                    zip_maps.append(om_zip)
 
             rm_comp.append(RelationshipMap(relname='springBootComponents',
                                            modname='ZenPacks.fednot.Delivery.SpringBootComponent',
@@ -146,9 +157,13 @@ class Delivery(PythonPlugin):
                                           modname='ZenPacks.fednot.Delivery.SpringBootJob',
                                           compname=comp_app,
                                           objmaps=job_maps))
+            rm_zip.append(RelationshipMap(relname='springBootZips',
+                                          modname='ZenPacks.fednot.Delivery.SpringBootZip',
+                                          compname=comp_app,
+                                          objmaps=zip_maps))
 
             om_order = ObjectMap()
-            om_order.id = self.prepId(app_name)
+            om_order.id = self.prepId('order_{}'.format(app_name))
             om_order.title = app_name
             om_order.serviceName = app_name
             rm_misc.append(RelationshipMap(relname='springBootOrders',
@@ -157,7 +172,7 @@ class Delivery(PythonPlugin):
                                            objmaps=[om_order]))
 
             om_jvm = ObjectMap()
-            om_jvm.id = self.prepId(app_name)
+            om_jvm.id = self.prepId('jvm_{}'.format(app_name))
             om_jvm.title = app_name
             om_jvm.serviceName = app_name
             rm_misc.append(RelationshipMap(relname='springBootJVMs',
@@ -171,6 +186,7 @@ class Delivery(PythonPlugin):
                                   objmaps=app_maps))
         rm.extend(rm_comp)
         rm.extend(rm_job)
+        rm.extend(rm_zip)
         rm.extend(rm_misc)
 
         return rm

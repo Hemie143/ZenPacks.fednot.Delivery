@@ -16,7 +16,7 @@ from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource import PythonD
 from Products.ZenUtils.Utils import prepId
 
 # Setup logging
-log = logging.getLogger('zen.PythonDeliveryJobs')
+log = logging.getLogger('zen.PythonDeliveryOrders')
 
 
 class Orders(PythonDataSourcePlugin):
@@ -105,13 +105,16 @@ class Orders(PythonDataSourcePlugin):
         for point in ds0.points:
             log.debug('point: {}'.format(point.id))
         total_check = 0
+        total_metrics = 0
         for order in orders_data:
             order_status = str(order['status'])
             order_value = order['count']
             data['values'][componentID][order_status.lower()] = order_value
             if order_status != 'TOTAL':
                 total_check += order_value
-        data['values'][componentID]['total_check'] = total_check
+            else:
+                total_metrics = order_value
+        data['values'][componentID]['total_check'] = total_metrics - total_check
 
         # log.debug('Success job - result is {}'.format(len(ds_data)))
 

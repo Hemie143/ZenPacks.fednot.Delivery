@@ -13,6 +13,7 @@ class_relationships:
   - SpringBootDevice 1:MC SpringBootApplication
   - SpringBootApplication 1:MC SpringBootComponent
   - SpringBootApplication 1:MC SpringBootJob
+  - SpringBootApplication 1:MC SpringBootZip
   - SpringBootApplication 1:MC SpringBootOrder
   - SpringBootApplication 1:MC SpringBootJVM
 
@@ -52,7 +53,7 @@ classes:
 
   SpringBootComponent:
     base: [zenpacklib.Component]
-    label: Application Component
+    label: Delivery Component
     monitoring_templates: [SpringBootComponent]
     properties:
       DEFAULTS:
@@ -75,7 +76,7 @@ classes:
 
   SpringBootJob:
     base: [zenpacklib.Component]
-    label: Application Job
+    label: Delivery Job
     monitoring_templates: [SpringBootJob]
     properties:
       DEFAULTS:
@@ -99,9 +100,36 @@ classes:
         grid_display: true
         label_width: 350
 
+  SpringBootZip:
+    base: [zenpacklib.Component]
+    label: Delivery Zip
+    monitoring_templates: [SpringBootZip]
+    properties:
+      DEFAULTS:
+        grid_display: false
+      zipName:
+        label: Zip Name
+      status:
+        label: Status
+        type: string
+        datapoint: job_zip_status
+        renderer: Zenoss.render.severity
+        grid_display: true
+        label_width: 40
+      dataCount:
+        label: Data Count
+        type: int
+        datapoint: job_dataCount
+        grid_display: true
+      missingCount:
+        label: Missing Count
+        type: int
+        datapoint: job_missingCount
+        grid_display: true
+
   SpringBootOrder:
     base: [zenpacklib.Component]
-    label: Application Order
+    label: Delivery Order
     monitoring_templates: [SpringBootOrder]
     properties:
       DEFAULTS:
@@ -113,7 +141,7 @@ classes:
 
   SpringBootJVM:
     base: [zenpacklib.Component]
-    label: Application JVM
+    label: Delivery JVM
     monitoring_templates: [SpringBootJVM]
     properties:
       DEFAULTS:
@@ -209,6 +237,42 @@ device_classes:
               age:
                 dpName: job_age
 
+      SpringBootZip:
+        targetPythonClass: ZenPacks.fednot.Delivery.SpringBootZip
+        datasources:
+          job:
+            type: Python
+            plugin_classname: ZenPacks.fednot.Delivery.dsplugins.jobs.Zips
+            datapoints:
+              zip_status:
+                rrdtype: GAUGE
+              dataCount:
+                rrdtype: GAUGE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
+              missingCount:
+                rrdtype: GAUGE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
+
       SpringBootOrder:
         targetPythonClass: ZenPacks.fednot.Delivery.SpringBootOrder
         datasources:
@@ -217,29 +281,161 @@ device_classes:
             plugin_classname: ZenPacks.fednot.Delivery.dsplugins.orders.Orders
             datapoints:
               barcode_received:
-                rrdtype: GAUGE
+                rrdtype: DERIVE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
               deposit_received:
-                rrdtype: GAUGE
+                rrdtype: DERIVE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
               missing_barcode:
-                rrdtype: GAUGE
+                rrdtype: DERIVE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
               missing_deposit:
-                rrdtype: GAUGE
+                rrdtype: DERIVE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
               missing_validation:
-                rrdtype: GAUGE
+                rrdtype: DERIVE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
               new:
-                rrdtype: GAUGE
+                rrdtype: DERIVE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
               resent:
-                rrdtype: GAUGE
+                rrdtype: DERIVE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
               total:
                 rrdtype: GAUGE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
               total_check:
                 rrdtype: GAUGE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
               uploaded:
-                rrdtype: GAUGE
+                rrdtype: DERIVE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
               validation_error:
-                rrdtype: GAUGE
+                rrdtype: DERIVE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
               validation_received:
-                rrdtype: GAUGE
+                rrdtype: DERIVE
+                createCmd: 'RRA:AVERAGE:0.5:1:600
+                  RRA:AVERAGE:0.5:6:600
+                  RRA:AVERAGE:0.5:24:600
+                  RRA:AVERAGE:0.5:288:600
+                  RRA:MAX:0.5:6:600
+                  RRA:MAX:0.5:24:600
+                  RRA:MAX:0.5:288:600
+                  RRA:LAST:0.5:1:600
+                  RRA:LAST:0.5:6:600
+                  RRA:LAST:0.5:24:600
+                  RRA:LAST:0.5:288:600'
         graphs:
           Received:
             units: messages
@@ -252,6 +448,12 @@ device_classes:
                 dpName: order_deposit_received
               Validation received:
                 dpName: order_validation_received
+              New:
+                dpName: order_new
+              Resent:
+                dpName: order_resent
+              Uploaded:
+                dpName: order_uploaded
           Missing:
             units: messages
             width: 1000
@@ -279,17 +481,6 @@ device_classes:
                 dpName: order_total
               Total Check:
                 dpName: order_total_check
-          Messages:
-            units: messages
-            width: 1000
-            miny: 0
-            graphpoints:
-              New:
-                dpName: order_new
-              Resent:
-                dpName: order_resent
-              Uploaded:
-                dpName: order_uploaded
 
       SpringBootJVM:
         targetPythonClass: ZenPacks.fednot.Delivery.SpringBootJVM
@@ -312,9 +503,13 @@ device_classes:
                 rrdtype: GAUGE
               mem.used:
                 rrdtype: GAUGE
+              mem.used_percentage:
+                rrdtype: GAUGE
               heap.committed:
                 rrdtype: GAUGE
               heap.used:
+                rrdtype: GAUGE
+              heap.used_percentage:
                 rrdtype: GAUGE
               heap:
                 rrdtype: GAUGE
@@ -347,6 +542,16 @@ device_classes:
               Memory Used:
                 dpName: jvm_mem.used
                 lineType: AREA
+          Memory Percentage:
+            units: percent
+            width: 1000
+            miny: 0
+            maxy: 100
+            # TODO: Colors of graphpoints
+            graphpoints:
+              Memory Used Percentage:
+                dpName: jvm_mem.used_percentage
+                lineType: AREA
           Heap Memory:
             units: bytes
             width: 1000
@@ -361,6 +566,15 @@ device_classes:
               Heap Used:
                 dpName: jvm_heap.used
                 lineType: AREA
+          Heap Memory Percentage:
+            units: percent
+            width: 1000
+            miny: 0
+            maxy: 100
+            graphpoints:
+              Heap Used Percentage:
+                dpName: jvm_heap.used_percentage
+                lineType: AREA
           Load:
             units: percent
             width: 1000
@@ -368,6 +582,7 @@ device_classes:
             graphpoints:
               System Load:
                 dpName: jvm_systemload.average
+                lineType: AREA
           Threads:
             units: threads
             width: 1000

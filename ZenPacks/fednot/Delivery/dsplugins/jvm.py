@@ -16,7 +16,7 @@ from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource import PythonD
 from Products.ZenUtils.Utils import prepId
 
 # Setup logging
-log = logging.getLogger('zen.PythonDeliveryJobs')
+log = logging.getLogger('zen.PythonDeliveryJVM')
 
 
 class JVM(PythonDataSourcePlugin):
@@ -110,7 +110,11 @@ class JVM(PythonDataSourcePlugin):
             if point.id in jvm_data:
                 data['values'][componentID][point.id] = jvm_data[point.id]
 
-        data['values'][componentID]['mem.used'] = jvm_data['mem'] - jvm_data['mem.free']
+        mem_used = jvm_data['mem'] - jvm_data['mem.free']
+        data['values'][componentID]['mem.used'] = mem_used
+        data['values'][componentID]['mem.used_percentage'] = float(mem_used) / float(jvm_data['mem']) * 100.0
+        data['values'][componentID]['heap.used_percentage'] = float(jvm_data['heap.used']) / float(jvm_data['heap']) \
+                                                              * 100.0
         log.debug('Success job - data is {}'.format(data))
         return data
 
