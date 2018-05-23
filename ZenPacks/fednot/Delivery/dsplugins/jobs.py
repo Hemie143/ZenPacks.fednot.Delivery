@@ -45,6 +45,8 @@ class MetricsJob(PythonDataSourcePlugin):
     def collect(self, config):
         log.debug('Starting Delivery health collect')
         # TODO : cleanup job collect
+        # TODO : switch to twisted.web.client.Agent, getPage is becoming Deprecated
+        # http://twisted.readthedocs.io/en/twisted-17.9.0/web/howto/client.html
 
         ip_address = config.manageIp
         if not ip_address:
@@ -105,6 +107,7 @@ class Jobs(MetricsJob):
                 ds_data[ds] = metrics
 
         jobs_data = ds_data.get('job', '')
+        # TODO: Check data content
         timestamp_now = int(time.time())    # UTC
         # log.debug('timestamp_now: {}'.format(timestamp_now))
         for datasource in config.datasources:
@@ -121,17 +124,28 @@ class Jobs(MetricsJob):
                 # UTC
                 datetime_obj = datetime.datetime(rundate['year'], rundate['monthValue'], rundate['dayOfMonth'],
                                                  rundate['hour'], rundate['minute'], rundate['second'])
+                '''
+                test = time.mktime(tm_year=rundate['year'], tm_mon=rundate['monthValue'],
+                                        tm_mday=rundate['dayOfMonth'], tm_hour=rundate['hour'],
+                                        tm_min=rundate['minute'], tm_sec=rundate['second'])
+                log.debug('test: {}'.format(test))
+                '''
                 job['timestamp'] = int(datetime_obj.strftime('%s'))
             # log.debug('job_list: {}'.format(job_list))
             # TODO: Check that job_list isn't empty
             last_job = sorted(job_list, key=itemgetter('timestamp'), reverse=True)[0]
             # log.debug('last_job: {}'.format(last_job))
             job_status = last_job['status']
-            job_age = (timestamp_now - last_job['timestamp']) / 60
+            job_age = (float(timestamp_now) - float(last_job['timestamp'])) / 60.0
             # log.debug('job_status: {}'.format(job_status))
-            # log.debug('timestamp_now: {}'.format(timestamp_now))
-            # log.debug('timestamp_job: {}'.format(last_job['timestamp']))
-            # log.debug('job_age      : {}'.format(job_age))
+            log.debug('timestamp_now: {}'.format((timestamp_now)))
+            log.debug('timestamp_zon: {}'.format(time.timezone))
+            log.debug('timestamp_loc: {}'.format(time.localtime()))
+            log.debug('timestamp_gmt: {}'.format(time.gmtime()))
+            log.debug('timestamp_job: {}'.format(last_job['timestamp']))
+            log.debug('runDate      : {}'.format(last_job['runDate']))
+            log.debug('job_age      : {}'.format((job_age)))
+
             # log.debug('job_age2: {}'.format((timestamp_now - job_age) / 60))
             job_status_map = status_maps.get(job_status, [3, 'Job {} has an unknown issue'])
             data['values'][componentID]['status'] = job_status_map[0]
@@ -179,10 +193,6 @@ class Zips(MetricsJob):
         # log.debug('Success job - result is {}'.format(result))
         # TODO : cleanup job onSuccess
 
-        status_maps = {'DONE': [0, 'Job {} is OK'],
-                       'ERROR': [5, 'Job {} is in error']
-                       }
-
         data = self.new_data()
 
         ds_data = {}
@@ -204,19 +214,34 @@ class Zips(MetricsJob):
             r = re.match('zip_{}_?(.*)'.format(service_name), componentID)
             component_label = r.group(1)
             zip_list = [d for d in jobs_data if d['zipName'] == component_label]
-            all_zips_list.remove(component_label)
-
-            # TODO: what if zip_list is empty ?
+            if component_label in all_zips_list:
+                all_zips_list.remove(component_label)
+            log.debug('zip_list: {}'.format(zip_list))
+            if zip_list == []:
+                log.debug('zip_list is EMPTY')
+                data['values'][componentID]['dataCount'] = 0
+                data['values'][componentID]['missingCount'] = 0
+                data['events'].append({
+                    'device': config.id,
+                    'component': componentID,
+                    'severity': 2,
+                    'eventKey': 'ZipHealth',
+                    'eventClassKey': 'ZipHealth',
+                    'summary': 'Zip {} has been removed'.format(component_label),
+                    'message': 'Zip {} has been removed'.format(component_label),
+                    'eventClass': '/Status/App',
+                })
+                continue
 
             dataCountSet = set([x['dataCount'] for x in zip_list])
             missingCountSet = set([x['missingCount'] for x in zip_list])
 
             if len(dataCountSet) > 1 or len(missingCountSet) > 1:
                 sev = 4
-                msg = 'Zip {} has lost messages'
+                msg = 'Zip {} has lost messages'.format(component_label)
             else:
                 sev = 0
-                msg = 'Zip {} is OK'
+                msg = 'Zip {} is OK'.format(component_label)
 
             data['values'][componentID]['zip_status'] = sev
             data['values'][componentID]['dataCount'] = max(dataCountSet)
@@ -249,6 +274,15 @@ class Zips(MetricsJob):
                                           compname=comp_app,
                                           objmaps=zip_maps))
 
+        '''
+        '''
+        data['maps'].append(
+            ObjectMap({
+                'relname' : 'dirs',
+                'modname': 'ZenPacks.community.DirFile.Dir',
+                'id': ds.component,
+                'bytesUsed': v,
+                }))
         '''
 
         if all_zips_list:

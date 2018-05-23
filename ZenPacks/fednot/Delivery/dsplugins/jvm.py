@@ -103,12 +103,16 @@ class JVM(PythonDataSourcePlugin):
 
         jvm_data = ds_data.get('jvm', '')
         log.debug('jvm_data: {}'.format(jvm_data))
+        if not jvm_data:
+            # TODO: Add event: no data collected
+            return data
         ds0 = config.datasources[0]
         componentID = prepId(ds0.component)
         for point in ds0.points:
             log.debug('point: {}'.format(point.id))
             if point.id in jvm_data:
                 data['values'][componentID][point.id] = jvm_data[point.id]
+
 
         mem_used = jvm_data['mem'] - jvm_data['mem.free']
         data['values'][componentID]['mem.used'] = mem_used

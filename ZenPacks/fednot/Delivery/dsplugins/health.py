@@ -89,12 +89,16 @@ class Health(PythonDataSourcePlugin):
 
         ds_data = {}
         for success, ddata in result:
+            # If not success ?
             if success:
                 ds = ddata[0]
                 metrics = json.loads(ddata[1])
                 ds_data[ds] = metrics
+            else:
+                log.debug('Health collect - result :'.format(result))
 
         health_data = ds_data.get('health', '')
+        # TODO: Check content data & create event
         if health_data:
             for datasource in config.datasources:
                 componentID = prepId(datasource.component)
