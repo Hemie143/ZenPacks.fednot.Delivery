@@ -4,7 +4,8 @@ import logging
 import re
 import datetime
 import time
-import base64
+import calendar
+# import base64
 from operator import itemgetter
 
 # Twisted Imports
@@ -108,45 +109,34 @@ class Jobs(MetricsJob):
 
         jobs_data = ds_data.get('job', '')
         # TODO: Check data content
-        timestamp_now = int(time.time())    # UTC
+        # timestamp_now = int(time.gmtime())    # UTC
+        timestamp_now = calendar.timegm(time.gmtime())
         # log.debug('timestamp_now: {}'.format(timestamp_now))
         for datasource in config.datasources:
             componentID = prepId(datasource.component)
-            log.debug('componentID: {}'.format(componentID))
+            # log.debug('componentID: {}'.format(componentID))
             service_name = datasource.params['serviceName']
             r = re.match('job_{}_?(.*)'.format(service_name), componentID)
             component_label = r.group(1)
-            # log.debug('comp: {}'.format(component_label))
             job_list = [d for d in jobs_data if d['jobName'] == component_label]
-            # log.debug('job_list: {}'.format(job_list))
             for job in job_list:
                 rundate = job['runDate']
                 # UTC
-                datetime_obj = datetime.datetime(rundate['year'], rundate['monthValue'], rundate['dayOfMonth'],
-                                                 rundate['hour'], rundate['minute'], rundate['second'])
-                '''
-                test = time.mktime(tm_year=rundate['year'], tm_mon=rundate['monthValue'],
-                                        tm_mday=rundate['dayOfMonth'], tm_hour=rundate['hour'],
-                                        tm_min=rundate['minute'], tm_sec=rundate['second'])
-                log.debug('test: {}'.format(test))
-                '''
-                job['timestamp'] = int(datetime_obj.strftime('%s'))
-            # log.debug('job_list: {}'.format(job_list))
+                # Don't use datetime.datetime because it takes into account the TZ
+                # datetime_obj = datetime.datetime(rundate['year'], rundate['monthValue'], rundate['dayOfMonth'],
+                #                                        rundate['hour'], rundate['minute'], rundate['second'])
+
+                time_job = '{}/{:02d}/{:02d} {:02d}:{:02d}:{:02d}'.format(rundate['year'], rundate['monthValue'],
+                                                                          rundate['dayOfMonth'],
+                                                                          rundate['hour'],
+                                                                          rundate['minute'],
+                                                                          rundate['second'])
+                timestring_job = time.strptime(time_job, '%Y/%m/%d %H:%M:%S')
+                job['timestamp'] = calendar.timegm(timestring_job)
             # TODO: Check that job_list isn't empty
             last_job = sorted(job_list, key=itemgetter('timestamp'), reverse=True)[0]
-            # log.debug('last_job: {}'.format(last_job))
             job_status = last_job['status']
             job_age = (float(timestamp_now) - float(last_job['timestamp'])) / 60.0
-            # log.debug('job_status: {}'.format(job_status))
-            log.debug('timestamp_now: {}'.format((timestamp_now)))
-            log.debug('timestamp_zon: {}'.format(time.timezone))
-            log.debug('timestamp_loc: {}'.format(time.localtime()))
-            log.debug('timestamp_gmt: {}'.format(time.gmtime()))
-            log.debug('timestamp_job: {}'.format(last_job['timestamp']))
-            log.debug('runDate      : {}'.format(last_job['runDate']))
-            log.debug('job_age      : {}'.format((job_age)))
-
-            # log.debug('job_age2: {}'.format((timestamp_now - job_age) / 60))
             job_status_map = status_maps.get(job_status, [3, 'Job {} has an unknown issue'])
             data['values'][componentID]['status'] = job_status_map[0]
             data['events'].append({
