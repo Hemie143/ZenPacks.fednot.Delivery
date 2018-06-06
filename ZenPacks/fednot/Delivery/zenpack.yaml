@@ -8,6 +8,12 @@ zProperties:
   zSpringBootApplications:
     category: SpringBoot
     type: lines
+  zIVGroups:
+    category: SpringBoot
+    type: string
+  zIVUser:
+    category: SpringBoot
+    type: string
 
 class_relationships:
   - SpringBootDevice 1:MC SpringBootApplication
@@ -44,11 +50,17 @@ classes:
         label: serviceName
         grid_display: true
         label_width: 350
+      mgmtURL:
+        label: Management URL
+        grid_display: false
       healthURL:
         label: Health URL
         grid_display: false
       serviceURL:
         label: Service URL
+        grid_display: false
+      hostingServer:
+        label: Hosting Server
         grid_display: false
 
   SpringBootComponent:
@@ -156,6 +168,7 @@ device_classes:
     zProperties:
       zPythonClass: ZenPacks.fednot.Delivery.SpringBootDevice
       zCollectorPlugins:
+        - fednot.json.SBA
         - fednot.json.Delivery
       zDeviceTemplates:
         - Device
@@ -227,8 +240,10 @@ device_classes:
             graphpoints:
               Data Count:
                 dpName: job_dataCount
+                cFunc: LAST
               Missing Count:
                 dpName: job_missingCount
+                cFunc: LAST
           Job Age:
             units: minutes
             width: 1000
@@ -444,16 +459,22 @@ device_classes:
             graphpoints:
               Barcode received:
                 dpName: order_barcode_received
+                cFunc: LAST
               Deposit received:
                 dpName: order_deposit_received
+                cFunc: LAST
               Validation received:
                 dpName: order_validation_received
+                cFunc: LAST
               New:
                 dpName: order_new
+                cFunc: LAST
               Resent:
                 dpName: order_resent
+                cFunc: LAST
               Uploaded:
                 dpName: order_uploaded
+                cFunc: LAST
           Missing:
             units: messages
             width: 1000
@@ -461,10 +482,13 @@ device_classes:
             graphpoints:
               Barcode missing:
                 dpName: order_missing_barcode
+                cFunc: LAST
               Deposit missing:
                 dpName: order_missing_deposit
+                cFunc: LAST
               Validation missing:
                 dpName: order_missing_validation
+                cFunc: LAST
           Errors:
             units: messages
             width: 1000
@@ -472,6 +496,7 @@ device_classes:
             graphpoints:
               Validation error:
                 dpName: order_validation_error
+                cFunc: LAST
           Totals:
             units: messages
             width: 1000
@@ -479,8 +504,10 @@ device_classes:
             graphpoints:
               Total:
                 dpName: order_total
+                cFunc: LAST
               Total Check:
                 dpName: order_total_check
+                cFunc: LAST
 
       SpringBootJVM:
         targetPythonClass: ZenPacks.fednot.Delivery.SpringBootJVM

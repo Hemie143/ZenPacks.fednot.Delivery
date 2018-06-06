@@ -19,14 +19,17 @@ class Delivery(PythonPlugin):
     requiredProperties = (
         'zSpringBootPort',
         'zSpringBootApplications',
+        'zIVGroups',
+        'zIVUser',
     )
 
     deviceProperties = PythonPlugin.deviceProperties + requiredProperties
 
     queries = [
-        ['health', 'http://{}:{}/{}/management/health'],
-        ['metricsJob', 'http://{}:{}/{}/management/metrics/job'],
-        ['metricsOrder', 'http://{}:{}/{}/management/metrics/order'],
+        ['sba', 'http://{}:{}/{}/sba/applications'],
+        # ['health', 'http://{}:{}/{}/management/health'],
+        # ['metricsJob', 'http://{}:{}/{}/management/metrics/job'],
+        # ['metricsOrder', 'http://{}:{}/{}/management/metrics/order'],
     ]
 
     @staticmethod
@@ -40,6 +43,9 @@ class Delivery(PythonPlugin):
         log.debug('{}: Modeling collect'.format(device.id))
 
         port = getattr(device, 'zSpringBootPort', None)
+        ivGroups = getattr(device, 'zIVGroups', None)
+        ivUser = getattr(device, 'zIVUser', None)
+
         applications = getattr(device, 'zSpringBootApplications', [])
 
         # TODO: fix this later when SBA is setup to list applications from a generic URL
@@ -66,8 +72,8 @@ class Delivery(PythonPlugin):
                             headers={
                                 "Accept": "application/json",
                                 "User-Agent": "Mozilla/3.0Gold",
-                                "iv-groups": "GRP_MANAGEMENT",
-                                "iv-user": "cs_monitoring",
+                                "iv-groups": ivGroups,
+                                "iv-user": ivUser,
                             },
                             )
                 d.addCallback(self.add_tag, '{}_{}'.format(app, query[0]))
