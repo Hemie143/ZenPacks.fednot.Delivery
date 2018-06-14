@@ -27,10 +27,16 @@ classes:
   SpringBootDevice:
     base: [zenpacklib.Device]
     label: SpringBoot Device
+    properties:
+      get_SBAApplications:
+        grid_display: false
+        api_only: true
+        api_backendtype: method
 
   SpringBootApplication:
     base: [zenpacklib.Component]
     label: Application
+    meta_type: SpringBootApplication
     monitoring_templates: [SpringBootApplication]
     properties:
       DEFAULTS:

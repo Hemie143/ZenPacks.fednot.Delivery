@@ -9,9 +9,11 @@ from twisted.web.client import getPage
 # Zenoss Imports
 from Products.DataCollector.plugins.CollectorPlugin import PythonPlugin
 from Products.DataCollector.plugins.DataMaps import ObjectMap, RelationshipMap
+from Products.ZenUtils.Utils import monkeypatch
 
 
 # TODO : CamelCase (check in YAML)
+
 class SBA(PythonPlugin):
     """
     Doc about this plugin
