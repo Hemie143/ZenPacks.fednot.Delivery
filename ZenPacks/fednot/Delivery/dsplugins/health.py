@@ -21,10 +21,13 @@ class Health(PythonDataSourcePlugin):
     proxy_attributes = (
         'zSpringBootPort',
         'zSpringBootApplications',
+        'zIVGroups',
+        'zIVUser',
     )
 
     urls = {
-        'health': 'http://{}:{}/{}/management/health',
+        # 'health': 'http://{}:{}/{}/management/health',
+        'health': '{}/management/health',
     }
 
     @staticmethod
@@ -47,12 +50,15 @@ class Health(PythonDataSourcePlugin):
     @classmethod
     def params(cls, datasource, context):
         log.debug('Starting Delivery health params')
-        params = {'serviceName': context.serviceName}
+        params = {'serviceName': context.serviceName,
+                  'hostingServer': context.hostingServer,
+                  'serviceURL': context.serviceURL}
         log.debug('params is {}'.format(params))
         return params
 
     def collect(self, config):
         log.debug('Starting Delivery health collect')
+        # log.debug('config: {}'.format(config.__dict__))
 
         ip_address = config.manageIp
         if not ip_address:
@@ -62,10 +68,18 @@ class Health(PythonDataSourcePlugin):
         deferreds = []
         sem = DeferredSemaphore(1)
         for datasource in config.datasources:
-            service_name = datasource.params['serviceName']
-            log.debug('collect datasource: {}'.format(datasource.datasource))
-            log.debug('collect component: {}'.format(datasource.component))
-            url = self.urls[datasource.datasource].format(ip_address, datasource.zSpringBootPort, service_name)
+            # service_name = datasource.params['serviceName']
+            # host = datasource.params['hostingServer']
+            serviceURL = datasource.params['serviceURL']
+            # log.debug('collect datasource: {}'.format(datasource.datasource))
+            # log.debug('collect component: {}'.format(datasource.component))
+            # log.debug('collect params: {}'.format(datasource.params))
+            # log.debug('collect serviceURL: {}'.format(serviceURL))
+            # log.debug('collect ivGroups: {}'.format(datasource.zSpringBootPort))
+            # log.debug('collect ivGroups: {}'.format(datasource.zIVGroups))
+            # url = self.urls[datasource.datasource].format(host, datasource.zSpringBootPort, service_name)
+
+            url = self.urls[datasource.datasource].format(serviceURL)
             log.debug('collect URL: {}'.format(url))
             # basic_auth = base64.encodestring('{}:{}'.format(datasource.zJolokiaUsername, datasource.zJolokiaPassword))
             # auth_header = "Basic " + basic_auth.strip()
@@ -74,8 +88,8 @@ class Health(PythonDataSourcePlugin):
                         headers={
                             "Accept": "application/json",
                             "User-Agent": "Mozilla/3.0Gold",
-                            "iv-groups": "GRP_MANAGEMENT",
-                            "iv-user": "cs_monitoring",
+                            "iv-groups": datasource.zIVGroups,
+                            "iv-user": datasource.zIVUser,
                         },
                         )
             d.addCallback(self.add_tag, datasource.datasource)
@@ -101,8 +115,10 @@ class Health(PythonDataSourcePlugin):
         # TODO: Check content data & create event
         if health_data:
             for datasource in config.datasources:
-                componentID = prepId(datasource.component)
-                service_name = datasource.params['serviceName']
+                componentID = prepId(datasource.component)          # comp_app_Delivery Service_3db30547_jobs
+                service_name = datasource.params['serviceName']     # app_Delivery Service_3db30547
+                log.debug('componentID: {}'.format(componentID))
+                log.debug('service_name: {}'.format(service_name))
                 comp_app = 'app_{}'.format(service_name)
                 if componentID == comp_app:
                     # Application health

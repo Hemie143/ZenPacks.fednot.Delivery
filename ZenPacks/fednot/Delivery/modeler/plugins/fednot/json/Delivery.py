@@ -2,8 +2,9 @@
 import json
 
 # Twisted Imports
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredSemaphore, DeferredList
-from twisted.web.client import getPage
+from twisted.web.client import getPage, Agent
 
 # Zenoss Imports
 from Products.DataCollector.plugins.CollectorPlugin import PythonPlugin
@@ -12,6 +13,8 @@ from Products.ZenUtils.Utils import monkeypatch
 
 
 # TODO : CamelCase (check in YAML)
+# TODO : cleanup
+# TODO : PEP8
 class Delivery(PythonPlugin):
     """
     Doc about this plugin
@@ -19,7 +22,6 @@ class Delivery(PythonPlugin):
 
     requiredProperties = (
         'zSpringBootPort',
-        'zSpringBootApplications',
         'zIVGroups',
         'zIVUser',
         'get_SBAApplications'
@@ -73,8 +75,7 @@ class Delivery(PythonPlugin):
         '''
         applications = device.get_SBAApplications
 
-        log.debug('****Property test: {}'.format(applications))
-
+        # log.debug('****Property test: {}'.format(applications))
         # applications = getattr(device, 'zSpringBootApplications', [])
 
         # TODO: fix this later when SBA is setup to list applications from a generic URL
@@ -104,7 +105,8 @@ class Delivery(PythonPlugin):
             #   'id': 'app_Delivery Service_b0acc0ef',
             #   'serviceURL': 'http://dvb-app-l15.dev.credoc.be:8105/delivery-service_v1'}
             # log.debug('app: {}'.format(app))
-            log.debug('app.healthURL: **{}**'.format(app['healthURL']))
+            # log.debug('app.healthURL: **{}**'.format(app['healthURL']))
+            # TODO: drop obsolete getPage
             d = sem.run(getPage, app['healthURL'],
                         headers={
                             "Accept": "application/json",
@@ -114,9 +116,9 @@ class Delivery(PythonPlugin):
             d.addCallback(self.add_tag, '{}_{}'.format(app['id'], 'health'))
             deferreds.append(d)
 
-            log.debug('app.mgmtURL: **{}**'.format(app['mgmtURL']))
+            # log.debug('app.mgmtURL: **{}**'.format(app['mgmtURL']))
             url = '{}/metrics/job'.format(app['mgmtURL'])
-            log.debug('app.url: **{}**'.format(url))
+            # log.debug('app.url: **{}**'.format(url))
             d = sem.run(getPage, url,
                         headers={
                             "Accept": "application/json",
@@ -169,7 +171,7 @@ class Delivery(PythonPlugin):
                 self.result_data[result[0]] = content
 
         apps_data = self.result_data.get('apps', '')
-        log.debug('***apps: {}'.format(apps_data))
+        # log.debug('***apps: {}'.format(apps_data))
 
         app_maps = []
         rm = []
@@ -177,8 +179,87 @@ class Delivery(PythonPlugin):
         rm_job = []
         rm_zip = []
         rm_misc = []
-        '''
+
         for app in apps_data:
+            # {u'mgmtURL': u'http://dvb-app-l01.dev.credoc.be:8105/delivery-service_v1/management',
+            # u'healthURL': u'http://dvb-app-l01.dev.credoc.be:8105/delivery-service_v1/management/health',
+            # u'id': u'app_Delivery Service_9ffe1d3e', u'hostingServer': u'dvb-app-l01.dev.credoc.be'}
+            # log.debug('app: {}'.format(app))
+            serviceName = app.get('serviceName', '')
+            serviceID = app.get('serviceID', '')
+            service = '{}_{}'.format(serviceName.lower().replace(' ', '_'), serviceID)
+            app_id = app.get('id', '')
+            comp_app = 'springBootApplications/{}'.format(app_id)
+
+            comp_maps = []
+            health_data = self.result_data.get('{}_health'.format(app_id), '')
+            # log.debug('health_data: {}'.format(health_data))
+            if health_data:
+                for comp_name, _ in health_data.items():
+                    if comp_name == 'status':
+                        continue
+                    om_comp = ObjectMap()
+                    # TODO: Avoid space in component name
+                    om_comp.id = self.prepId('comp_{}_{}'.format(service, comp_name))
+                    om_comp.title = '{} ({} on {})'.format(comp_name, serviceName, app.get('hostingServer'))
+                    # om_comp.serviceName = app_id
+                    comp_maps.append(om_comp)
+
+            rm_comp.append(RelationshipMap(relname='springBootComponents',
+                                           modname='ZenPacks.fednot.Delivery.SpringBootComponent',
+                                           compname=comp_app,
+                                           objmaps=comp_maps))
+
+            job_maps = []
+            zip_maps = []
+            job_data = self.result_data.get('{}_metricsJob'.format(app_id), '')
+            if job_data:
+                jobs_list = set([d['jobName'] for d in job_data])
+                for job in jobs_list:
+                    om_job = ObjectMap()
+                    om_job.id = self.prepId('job_{}_{}'.format(service, job))
+                    om_job.title = '{} ({} on {})'.format(job, serviceName, app.get('hostingServer'))
+                    # om_job.serviceName = app_id
+                    job_maps.append(om_job)
+                zips_list = set([d['zipName'] for d in job_data])
+                for zipn in zips_list:
+                    if zipn is None:
+                        continue
+                    om_zip = ObjectMap()
+                    om_zip.id = self.prepId('zip_{}_{}'.format(service, zipn))
+                    om_zip.title = '{} ({})'.format(zipn, app.get('hostingServer'))
+                    om_zip.zipName = zipn
+                    zip_maps.append(om_zip)
+
+            rm_job.append(RelationshipMap(relname='springBootJobs',
+                                          modname='ZenPacks.fednot.Delivery.SpringBootJob',
+                                          compname=comp_app,
+                                          objmaps=job_maps))
+            rm_zip.append(RelationshipMap(relname='springBootZips',
+                                          modname='ZenPacks.fednot.Delivery.SpringBootZip',
+                                          compname=comp_app,
+                                          objmaps=zip_maps))
+
+            om_order = ObjectMap()
+            om_order.id = self.prepId('order_{}'.format(service))
+            om_order.title = 'Order ({} on {})'.format(serviceName, app.get('hostingServer'))
+            om_order.serviceName = app_id
+            rm_misc.append(RelationshipMap(relname='springBootOrders',
+                                           modname='ZenPacks.fednot.Delivery.SpringBootOrder',
+                                           compname=comp_app,
+                                           objmaps=[om_order]))
+
+            om_jvm = ObjectMap()
+            om_jvm.id = self.prepId('jvm_{}'.format(service))
+            om_jvm.title = 'JVM ({} on {})'.format(serviceName, app.get('hostingServer'))
+            om_jvm.serviceName = app_id
+            rm_misc.append(RelationshipMap(relname='springBootJVMs',
+                                           modname='ZenPacks.fednot.Delivery.SpringBootJVM',
+                                           compname=comp_app,
+                                           objmaps=[om_jvm]))
+
+
+        '''
             om_app = ObjectMap()
             app_name = app.get('name', '')
             om_app.id = self.prepId('app_{}'.format(app_name))

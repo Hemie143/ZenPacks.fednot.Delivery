@@ -52,6 +52,7 @@ class SBA(PythonPlugin):
         deferreds = []
         sem = DeferredSemaphore(1)
 
+        # TODO: remove loop
         for query in self.queries:
             url = query[1].format(ip_address, port)
             # TODO: move iv headers in Config Properties
@@ -90,19 +91,18 @@ class SBA(PythonPlugin):
                 else:
                     content = {}
                 self.result_data[result[0]] = content
-
         sba_data = self.result_data.get('sba', '')
-
-        log.debug('sba_data: {}'.format(len(sba_data)))
 
         app_maps = []
         rm = []
         for app in sba_data:
             om_app = ObjectMap()
-            app_name = app.get('name', '')
+            app_label = app.get('name', '')
+            app_name = app_label.lower().replace(' ', '_')
             app_id = app.get('id', '')
             om_app.id = self.prepId('app_{}_{}'.format(app_name, app_id))
-            om_app.serviceName = app_name
+            om_app.serviceName = app_label
+            om_app.serviceID = app_id
             mgmtURL = app.get('managementUrl', '')
             om_app.mgmtURL = mgmtURL
             om_app.healthURL = app.get('healthUrl', '')
@@ -110,7 +110,7 @@ class SBA(PythonPlugin):
             r = re.match(r'^(.*:)//([A-Za-z0-9\-\.]+)(:[0-9]+)?(.*)$', mgmtURL)
             server = r.group(2)
             om_app.hostingServer = server
-            om_app.title = '{} on {} ({})'.format(app_name, server, app_id)
+            om_app.title = '{} on {} ({})'.format(app_label, server, app_id)
 
             app_maps.append(om_app)
             # comp_app = 'springBootApplications/{}'.format(om_app.id)
