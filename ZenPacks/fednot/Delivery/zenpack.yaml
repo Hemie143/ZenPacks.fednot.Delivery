@@ -60,6 +60,10 @@ classes:
         label: applicationID
         grid_display: true
         label_width: 100
+      componentLabel:
+        label: componentLabel
+        grid_display: true
+        label_width: 30
       mgmtURL:
         label: Management URL
         grid_display: false
@@ -102,6 +106,10 @@ classes:
         label: applicationID
         grid_display: true
         label_width: 100
+      componentLabel:
+        label: componentLabel
+        grid_display: true
+        label_width: 30
     relationships:
       DEFAULTS:
         grid_display: false

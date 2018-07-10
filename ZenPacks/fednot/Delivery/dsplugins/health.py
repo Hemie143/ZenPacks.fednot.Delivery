@@ -54,6 +54,7 @@ class Health(PythonDataSourcePlugin):
         params['hostingServer'] = context.hostingServer
         params['serviceURL'] = context.serviceURL
         params['applicationID'] = context.applicationID
+        params['componentLabel'] = context.componentLabel
         log.debug('params is {}'.format(params))
         return params
 
@@ -146,7 +147,7 @@ class Health(PythonDataSourcePlugin):
                 # Application component health
                 # r = re.match('comp_{}_?(.*)'.format(service_name), componentID)
                 # component_label = r.group(1)
-                component_label = 'YYY'
+                component_label = datasource.params['componentLabel']
                 health = health_data.get(component_label, '')
                 if health:
                     health = health.get('status')

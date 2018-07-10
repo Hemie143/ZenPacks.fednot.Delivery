@@ -103,6 +103,7 @@ class SBA(PythonPlugin):
             om_app.id = self.prepId('app_{}_{}'.format(app_name, app_id))
             om_app.serviceName = app_label
             om_app.serviceID = app_id
+            om_app.componentLabel = ''
             # TODO: try to get rid of this, but info required for collectors
             om_app.applicationID = om_app.id
             mgmtURL = app.get('managementUrl', '')
