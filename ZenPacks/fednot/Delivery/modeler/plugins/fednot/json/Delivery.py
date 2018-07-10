@@ -202,6 +202,7 @@ class Delivery(PythonPlugin):
                     # TODO: Avoid space in component name
                     om_comp.id = self.prepId('comp_{}_{}'.format(service, comp_name))
                     om_comp.title = '{} ({} on {})'.format(comp_name, serviceName, app.get('hostingServer'))
+                    om_comp.applicationID = app_id
                     # om_comp.serviceName = app_id
                     comp_maps.append(om_comp)
 

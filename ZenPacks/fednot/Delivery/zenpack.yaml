@@ -55,7 +55,11 @@ classes:
       serviceName:
         label: serviceName
         grid_display: true
-        label_width: 350
+        label_width: 100
+      applicationID:
+        label: applicationID
+        grid_display: true
+        label_width: 100
       mgmtURL:
         label: Management URL
         grid_display: false
@@ -67,6 +71,9 @@ classes:
         grid_display: false
       hostingServer:
         label: Hosting Server
+        grid_display: false
+    relationships:
+      DEFAULTS:
         grid_display: false
 
   SpringBootComponent:
@@ -90,11 +97,16 @@ classes:
       serviceName:
         label: serviceName
         grid_display: true
-        label_width: 350
+        label_width: 100
+      applicationID:
+        label: applicationID
+        grid_display: true
+        label_width: 100
     relationships:
       DEFAULTS:
         grid_display: false
-      springBootApplications: {}
+      springBootApplication:
+        content_width: 100
 
   SpringBootJob:
     base: [zenpacklib.Component]
