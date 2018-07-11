@@ -57,38 +57,8 @@ class Delivery(PythonPlugin):
             log.error("%s: zIVUser is not defined", device.id)
             returnValue(None)
 
-        # apps = getattr(device, 'test', None)
-        # apps = device.test2
-        log.debug('ivGroups: {}'.format(ivGroups))
-        log.debug('ivUser: {}'.format(ivUser))
-
-        # load in previous mappings..
-        '''
-        if callable(device.get_SBAApplications):
-            # needed when we are passed a real device, rather than a
-            # deviceproxy, during testing
-            apps = device.get_SBAApplications()
-            log.debug('****Callable')
-        else:
-            apps = device.get_SBAApplications
-            log.debug('****NOT Callable')
-        '''
         applications = device.get_SBAApplications
-
-        # log.debug('****Property test: {}'.format(applications))
-        # applications = getattr(device, 'zSpringBootApplications', [])
-
-        # TODO: fix this later when SBA is setup to list applications from a generic URL
-        # Use http://{}:{}/sba/api/applications
-        '''
-        app_dict = []
-        for app in applications:
-            app_dict.append('{{"name":"{}"}}'.format(app))
-
-        app_result = (True, ('apps', '[{}]'.format(','.join(app_dict))))
-        '''
         app_result = (True, ('apps', json.dumps(applications)))
-        log.debug('app_result: {}'.format(app_result))
 
         ip_address = device.manageIp
         if not ip_address:
@@ -104,8 +74,6 @@ class Delivery(PythonPlugin):
             #   'healthURL': 'http://dvb-app-l15.dev.credoc.be:8105/delivery-service_v1/management/health',
             #   'id': 'app_Delivery Service_b0acc0ef',
             #   'serviceURL': 'http://dvb-app-l15.dev.credoc.be:8105/delivery-service_v1'}
-            # log.debug('app: {}'.format(app))
-            # log.debug('app.healthURL: **{}**'.format(app['healthURL']))
             # TODO: drop obsolete getPage
             d = sem.run(getPage, app['healthURL'],
                         headers={
@@ -116,9 +84,7 @@ class Delivery(PythonPlugin):
             d.addCallback(self.add_tag, '{}_{}'.format(app['id'], 'health'))
             deferreds.append(d)
 
-            # log.debug('app.mgmtURL: **{}**'.format(app['mgmtURL']))
             url = '{}/metrics/job'.format(app['mgmtURL'])
-            # log.debug('app.url: **{}**'.format(url))
             d = sem.run(getPage, url,
                         headers={
                             "Accept": "application/json",
@@ -127,22 +93,6 @@ class Delivery(PythonPlugin):
                         })
             d.addCallback(self.add_tag, '{}_{}'.format(app['id'], 'metricsJob'))
             deferreds.append(d)
-
-            '''
-            for query in self.queries:
-                url = query[1].format(ip_address, port, app)
-                # TODO: move iv headers in Config Properties
-                d = sem.run(getPage, url,
-                            headers={
-                                "Accept": "application/json",
-                                "User-Agent": "Mozilla/3.0Gold",
-                                "iv-groups": ivGroups,
-                                "iv-user": ivUser,
-                            },
-                            )
-                d.addCallback(self.add_tag, '{}_{}'.format(app, query[0]))
-                deferreds.append(d)
-            '''
 
         results = yield DeferredList(deferreds, consumeErrors=True)
         results.append(app_result)
@@ -171,7 +121,6 @@ class Delivery(PythonPlugin):
                 self.result_data[result[0]] = content
 
         apps_data = self.result_data.get('apps', '')
-        # log.debug('***apps: {}'.format(apps_data))
 
         app_maps = []
         rm = []
@@ -184,7 +133,6 @@ class Delivery(PythonPlugin):
             # {u'mgmtURL': u'http://dvb-app-l01.dev.credoc.be:8105/delivery-service_v1/management',
             # u'healthURL': u'http://dvb-app-l01.dev.credoc.be:8105/delivery-service_v1/management/health',
             # u'id': u'app_Delivery Service_9ffe1d3e', u'hostingServer': u'dvb-app-l01.dev.credoc.be'}
-            # log.debug('app: {}'.format(app))
             serviceName = app.get('serviceName', '')
             serviceID = app.get('serviceID', '')
             service = '{}_{}'.format(serviceName.lower().replace(' ', '_'), serviceID)
@@ -193,7 +141,6 @@ class Delivery(PythonPlugin):
 
             comp_maps = []
             health_data = self.result_data.get('{}_health'.format(app_id), '')
-            # log.debug('health_data: {}'.format(health_data))
             if health_data:
                 for comp_name, _ in health_data.items():
                     if comp_name == 'status':
@@ -222,6 +169,8 @@ class Delivery(PythonPlugin):
                     om_job.id = self.prepId('job_{}_{}'.format(service, job))
                     om_job.title = '{} ({} on {})'.format(job, serviceName, app.get('hostingServer'))
                     # om_job.serviceName = app_id
+                    om_job.applicationID = app_id
+                    om_job.jobName = job
                     job_maps.append(om_job)
                 zips_list = set([d['zipName'] for d in job_data])
                 for zipn in zips_list:
@@ -230,6 +179,7 @@ class Delivery(PythonPlugin):
                     om_zip = ObjectMap()
                     om_zip.id = self.prepId('zip_{}_{}'.format(service, zipn))
                     om_zip.title = '{} ({})'.format(zipn, app.get('hostingServer'))
+                    om_zip.applicationID = app_id
                     om_zip.zipName = zipn
                     zip_maps.append(om_zip)
 
@@ -260,85 +210,6 @@ class Delivery(PythonPlugin):
                                            compname=comp_app,
                                            objmaps=[om_jvm]))
 
-
-        '''
-            om_app = ObjectMap()
-            app_name = app.get('name', '')
-            om_app.id = self.prepId('app_{}'.format(app_name))
-            om_app.title = app_name
-            om_app.serviceName = app_name
-            app_maps.append(om_app)
-            comp_app = 'springBootApplications/{}'.format(om_app.id)
-
-            comp_maps = []
-            health_data = self.result_data.get('{}_health'.format(app_name), '')
-            if health_data:
-                for comp_name, _ in health_data.items():
-                    if comp_name == 'status':
-                        continue
-                    om_comp = ObjectMap()
-                    om_comp.id = self.prepId('comp_{}_{}'.format(app_name, comp_name))
-                    om_comp.title = comp_name
-                    om_comp.serviceName = app_name
-                    comp_maps.append(om_comp)
-
-            job_maps = []
-            zip_maps = []
-            job_data = self.result_data.get('{}_metricsJob'.format(app_name), '')
-            if job_data:
-                jobs_list = set([d['jobName'] for d in job_data])
-                for job in jobs_list:
-                    om_job = ObjectMap()
-                    om_job.id = self.prepId('job_{}_{}'.format(app_name, job))
-                    om_job.title = job
-                    om_job.serviceName = app_name
-                    job_maps.append(om_job)
-                zips_list = set([d['zipName'] for d in job_data])
-                for zipn in zips_list:
-                    if zipn is None:
-                        continue
-                    om_zip = ObjectMap()
-                    om_zip.id = self.prepId('zip_{}_{}'.format(app_name, zipn))
-                    om_zip.title = zipn
-                    om_zip.zipName = zipn
-                    zip_maps.append(om_zip)
-
-            rm_comp.append(RelationshipMap(relname='springBootComponents',
-                                           modname='ZenPacks.fednot.Delivery.SpringBootComponent',
-                                           compname=comp_app,
-                                           objmaps=comp_maps))
-            rm_job.append(RelationshipMap(relname='springBootJobs',
-                                          modname='ZenPacks.fednot.Delivery.SpringBootJob',
-                                          compname=comp_app,
-                                          objmaps=job_maps))
-            rm_zip.append(RelationshipMap(relname='springBootZips',
-                                          modname='ZenPacks.fednot.Delivery.SpringBootZip',
-                                          compname=comp_app,
-                                          objmaps=zip_maps))
-
-            om_order = ObjectMap()
-            om_order.id = self.prepId('order_{}'.format(app_name))
-            om_order.title = app_name
-            om_order.serviceName = app_name
-            rm_misc.append(RelationshipMap(relname='springBootOrders',
-                                           modname='ZenPacks.fednot.Delivery.SpringBootOrder',
-                                           compname=comp_app,
-                                           objmaps=[om_order]))
-
-            om_jvm = ObjectMap()
-            om_jvm.id = self.prepId('jvm_{}'.format(app_name))
-            om_jvm.title = app_name
-            om_jvm.serviceName = app_name
-            rm_misc.append(RelationshipMap(relname='springBootJVMs',
-                                           modname='ZenPacks.fednot.Delivery.SpringBootJVM',
-                                           compname=comp_app,
-                                           objmaps=[om_jvm]))
-        
-        rm.append(RelationshipMap(relname='springBootApplications',
-                                  modname='ZenPacks.fednot.Delivery.SpringBootApplication',
-                                  compname='',
-                                  objmaps=app_maps))
-        '''
         rm.extend(rm_comp)
         rm.extend(rm_job)
         rm.extend(rm_zip)

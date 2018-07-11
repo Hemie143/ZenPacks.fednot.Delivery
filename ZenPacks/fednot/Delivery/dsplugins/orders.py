@@ -22,11 +22,12 @@ log = logging.getLogger('zen.PythonDeliveryOrders')
 class Orders(PythonDataSourcePlugin):
     proxy_attributes = (
         'zSpringBootPort',
-        'zSpringBootApplications',
+        'zIVGroups',
+        'zIVUser',
     )
 
     urls = {
-        'order': 'http://{}:{}/{}/management/metrics/order',
+        'order': '{}/management/metrics/order',
     }
 
     @staticmethod
@@ -41,14 +42,16 @@ class Orders(PythonDataSourcePlugin):
         return (
             context.device().id,
             datasource.getCycleTime(context),
-            context.serviceName,
+            context.applicationID,
             'SB_Order'
         )
 
     @classmethod
     def params(cls, datasource, context):
         log.debug('Starting Delivery Jobs params')
-        params = {'serviceName': context.serviceName}
+        params = {}
+        params['serviceURL'] = context.serviceURL
+        params['applicationID'] = context.applicationID
         log.debug('params is {}'.format(params))
         return params
 
@@ -61,33 +64,33 @@ class Orders(PythonDataSourcePlugin):
             log.error("%s: IP Address cannot be empty", device.id)
             returnValue(None)
 
+        serviceList = []
         deferreds = []
         sem = DeferredSemaphore(1)
         for datasource in config.datasources:
-            service_name = datasource.params['serviceName']
-            # log.debug('collect datasource: {}'.format(datasource.datasource))
-            # log.debug('collect component: {}'.format(datasource.component))
-            url = self.urls[datasource.datasource].format(ip_address, datasource.zSpringBootPort, service_name)
-            # log.debug('collect URL: {}'.format(url))
-            # basic_auth = base64.encodestring('{}:{}'.format(datasource.zJolokiaUsername, datasource.zJolokiaPassword))
-            # auth_header = "Basic " + basic_auth.strip()
+            applicationID = datasource.params['applicationID']
+            if applicationID in serviceList:
+                continue
+            serviceList.append(applicationID)
+            serviceURL = datasource.params['serviceURL']
+            url = self.urls[datasource.datasource].format(serviceURL)
             # TODO : move headers to Config properties
             d = sem.run(getPage, url,
                         headers={
                             "Accept": "application/json",
                             "User-Agent": "Mozilla/3.0Gold",
-                            "iv-groups": "GRP_MANAGEMENT",
-                            "iv-user": "cs_monitoring",
+                            "iv-groups": datasource.zIVGroups,
+                            "iv-user": datasource.zIVUser,
                         },
                         )
-            d.addCallback(self.add_tag, datasource.datasource)
+            tag = '{}_{}'.format(datasource.datasource, applicationID)      # order_app_delivery_service_3db30547
+            d.addCallback(self.add_tag, tag)
             deferreds.append(d)
         return DeferredList(deferreds)
 
     def onSuccess(self, result, config):
-        # log.debug('Success job - result is {}'.format(result))
+        log.debug('Success job - result is {}'.format(result))
         # TODO : cleanup job onSuccess
-
         data = self.new_data()
         ds_data = {}
         for success, ddata in result:
@@ -96,14 +99,12 @@ class Orders(PythonDataSourcePlugin):
                 metrics = json.loads(ddata[1])
                 ds_data[ds] = metrics
 
-        orders_data = ds_data.get('order', '')
-        log.debug('Success orders - orders_data is {}'.format(orders_data))
         ds0 = config.datasources[0]
         componentID = prepId(ds0.component)
-        log.debug('componentID: {}'.format(componentID))
-        log.debug('points: {}'.format(ds0.points))
-        for point in ds0.points:
-            log.debug('point: {}'.format(point.id))
+        applicationID = ds0.params['applicationID']
+        tag = '{}_{}'.format(ds0.datasource, applicationID)
+        orders_data = ds_data.get(tag, '')
+
         total_check = 0
         total_metrics = 0
         for order in orders_data:
@@ -115,8 +116,6 @@ class Orders(PythonDataSourcePlugin):
             else:
                 total_metrics = order_value
         data['values'][componentID]['total_check'] = total_metrics - total_check
-
-        # log.debug('Success job - result is {}'.format(len(ds_data)))
 
         log.debug('Success job - data is {}'.format(data))
         return data

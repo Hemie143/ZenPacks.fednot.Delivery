@@ -22,11 +22,12 @@ log = logging.getLogger('zen.PythonDeliveryJVM')
 class JVM(PythonDataSourcePlugin):
     proxy_attributes = (
         'zSpringBootPort',
-        'zSpringBootApplications',
+        'zIVGroups',
+        'zIVUser',
     )
 
     urls = {
-        'jvm': 'http://{}:{}/{}/management/metrics',
+        'jvm': '{}/management/metrics',
     }
 
     @staticmethod
@@ -41,19 +42,21 @@ class JVM(PythonDataSourcePlugin):
         return (
             context.device().id,
             datasource.getCycleTime(context),
-            context.serviceName,
+            context.applicationID,
             'SB_JVM'
         )
 
     @classmethod
     def params(cls, datasource, context):
-        log.debug('Starting Delivery Jobs params')
-        params = {'serviceName': context.serviceName}
+        log.debug('Starting Delivery JVM params')
+        params = {}
+        params['serviceURL'] = context.serviceURL
+        params['applicationID'] = context.applicationID
         log.debug('params is {}'.format(params))
         return params
 
     def collect(self, config):
-        log.debug('Starting Delivery health collect')
+        log.debug('Starting Delivery JVM collect')
         # TODO : cleanup job collect
 
         ip_address = config.manageIp
@@ -61,36 +64,33 @@ class JVM(PythonDataSourcePlugin):
             log.error("%s: IP Address cannot be empty", device.id)
             returnValue(None)
 
+        serviceList = []
         deferreds = []
         sem = DeferredSemaphore(1)
         for datasource in config.datasources:
-            service_name = datasource.params['serviceName']
-            # log.debug('collect datasource: {}'.format(datasource.datasource))
-            # log.debug('collect component: {}'.format(datasource.component))
-            url = self.urls[datasource.datasource].format(ip_address, datasource.zSpringBootPort, service_name)
-            # log.debug('collect URL: {}'.format(url))
-            # basic_auth = base64.encodestring('{}:{}'.format(datasource.zJolokiaUsername, datasource.zJolokiaPassword))
-            # auth_header = "Basic " + basic_auth.strip()
+            applicationID = datasource.params['applicationID']
+            if applicationID in serviceList:
+                continue
+            serviceList.append(applicationID)
+            serviceURL = datasource.params['serviceURL']
+            url = self.urls[datasource.datasource].format(serviceURL)
             # TODO : move headers to Config properties
             d = sem.run(getPage, url,
                         headers={
                             "Accept": "application/json",
                             "User-Agent": "Mozilla/3.0Gold",
-                            "iv-groups": "GRP_MANAGEMENT",
-                            "iv-user": "cs_monitoring",
+                            "iv-groups": datasource.zIVGroups,
+                            "iv-user": datasource.zIVUser,
                         },
                         )
-            d.addCallback(self.add_tag, datasource.datasource)
+            tag = '{}_{}'.format(datasource.datasource, applicationID)      # order_app_delivery_service_3db30547
+            d.addCallback(self.add_tag, tag)
             deferreds.append(d)
         return DeferredList(deferreds)
 
     def onSuccess(self, result, config):
-        # log.debug('Success job - result is {}'.format(result))
+        log.debug('Success job - result is {}'.format(result))
         # TODO : cleanup job onSuccess
-
-        status_maps = {'DONE': [0, 'Job {} is OK'],
-                       'ERROR': [5, 'Job {} is in error']
-                       }
 
         data = self.new_data()
 
@@ -101,18 +101,17 @@ class JVM(PythonDataSourcePlugin):
                 metrics = json.loads(ddata[1])
                 ds_data[ds] = metrics
 
-        jvm_data = ds_data.get('jvm', '')
-        log.debug('jvm_data: {}'.format(jvm_data))
+        ds0 = config.datasources[0]
+        componentID = prepId(ds0.component)
+        applicationID = ds0.params['applicationID']
+        tag = '{}_{}'.format(ds0.datasource, applicationID)
+        jvm_data = ds_data.get(tag, '')
         if not jvm_data:
             # TODO: Add event: no data collected
             return data
-        ds0 = config.datasources[0]
-        componentID = prepId(ds0.component)
         for point in ds0.points:
-            log.debug('point: {}'.format(point.id))
             if point.id in jvm_data:
                 data['values'][componentID][point.id] = jvm_data[point.id]
-
 
         mem_used = jvm_data['mem'] - jvm_data['mem.free']
         data['values'][componentID]['mem.used'] = mem_used

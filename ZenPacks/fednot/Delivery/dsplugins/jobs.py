@@ -23,28 +23,23 @@ log = logging.getLogger('zen.PythonDeliveryJobs')
 
 
 class MetricsJob(PythonDataSourcePlugin):
+
     proxy_attributes = (
         'zSpringBootPort',
-        'zSpringBootApplications',
+        'zIVGroups',
+        'zIVUser',
     )
 
     urls = {
-        'job': 'http://{}:{}/{}/management/metrics/job',
+        'job': '{}/management/metrics/job',
     }
 
     @staticmethod
     def add_tag(result, label):
         return tuple((label, result))
 
-    @classmethod
-    def params(cls, datasource, context):
-        log.debug('Starting Delivery Jobs params')
-        params = {'serviceName': context.serviceName}
-        log.debug('params is {}'.format(params))
-        return params
-
     def collect(self, config):
-        log.debug('Starting Delivery health collect')
+        log.debug('Starting Delivery Jobs collect')
         # TODO : cleanup job collect
         # TODO : switch to twisted.web.client.Agent, getPage is becoming Deprecated
         # http://twisted.readthedocs.io/en/twisted-17.9.0/web/howto/client.html
@@ -54,27 +49,29 @@ class MetricsJob(PythonDataSourcePlugin):
             log.error("%s: IP Address cannot be empty", device.id)
             returnValue(None)
 
+        # Gather the info about services
+        serviceList = []
         deferreds = []
         sem = DeferredSemaphore(1)
         for datasource in config.datasources:
-            service_name = datasource.params['serviceName']
-            url = self.urls[datasource.datasource].format(ip_address, datasource.zSpringBootPort, service_name)
-            # log.debug('collect URL: {}'.format(url))
-            # basic_auth = base64.encodestring('{}:{}'.format(datasource.zJolokiaUsername, datasource.zJolokiaPassword))
-            # auth_header = "Basic " + basic_auth.strip()
-            # TODO : move headers to Config properties
+            applicationID = datasource.params['applicationID']
+            if applicationID in serviceList:
+                continue
+            serviceList.append(applicationID)
+            serviceURL = datasource.params['serviceURL']
+            url = self.urls[datasource.datasource].format(serviceURL)
             d = sem.run(getPage, url,
                         headers={
                             "Accept": "application/json",
                             "User-Agent": "Mozilla/3.0Gold",
-                            "iv-groups": "GRP_MANAGEMENT",
-                            "iv-user": "cs_monitoring",
+                            "iv-groups": datasource.zIVGroups,
+                            "iv-user": datasource.zIVUser,
                         },
                         )
-            d.addCallback(self.add_tag, datasource.datasource)
+            tag = '{}_{}'.format(datasource.datasource, applicationID)
+            d.addCallback(self.add_tag, tag)
             deferreds.append(d)
         return DeferredList(deferreds)
-
 
 class Jobs(MetricsJob):
 
@@ -86,12 +83,24 @@ class Jobs(MetricsJob):
         return (
             context.device().id,
             datasource.getCycleTime(context),
-            context.serviceName,
+            context.applicationID,
             'SB_Job'
         )
 
+    @classmethod
+    def params(cls, datasource, context):
+        log.debug('Starting Delivery Jobs params')
+        params = {}
+        params['hostingServer'] = context.hostingServer
+        params['serviceURL'] = context.serviceURL
+        params['applicationID'] = context.applicationID
+        params['componentLabel'] = context.componentLabel
+        params['jobName'] = context.jobName
+        log.info('params is {}'.format(params))
+        return params
+
     def onSuccess(self, result, config):
-        # log.debug('Success job - result is {}'.format(result))
+        log.debug('Success job - result is {}'.format(result))
         # TODO : cleanup job onSuccess
 
         status_maps = {'DONE': [0, 'Job {} is OK'],
@@ -107,18 +116,16 @@ class Jobs(MetricsJob):
                 metrics = json.loads(ddata[1])
                 ds_data[ds] = metrics
 
-        jobs_data = ds_data.get('job', '')
         # TODO: Check data content
-        # timestamp_now = int(time.gmtime())    # UTC
+        # TODO: Model new jobs
         timestamp_now = calendar.timegm(time.gmtime())
-        # log.debug('timestamp_now: {}'.format(timestamp_now))
         for datasource in config.datasources:
             componentID = prepId(datasource.component)
-            # log.debug('componentID: {}'.format(componentID))
-            service_name = datasource.params['serviceName']
-            r = re.match('job_{}_?(.*)'.format(service_name), componentID)
-            component_label = r.group(1)
-            job_list = [d for d in jobs_data if d['jobName'] == component_label]
+            applicationID = datasource.params['applicationID']
+            jobName = datasource.params['jobName']
+            tag = '{}_{}'.format(datasource.datasource, applicationID)
+            jobs_data = ds_data.get(tag, '')
+            job_list = [d for d in jobs_data if d['jobName'] == jobName]
             for job in job_list:
                 rundate = job['runDate']
                 # UTC
@@ -154,8 +161,6 @@ class Jobs(MetricsJob):
             data['values'][componentID]['dataCount'] = last_job['dataCount']
             data['values'][componentID]['missingCount'] = last_job['missingCount']
 
-        # log.debug('Success job - result is {}'.format(len(ds_data)))
-
         log.debug('Success job - data is {}'.format(data))
         return data
 
@@ -179,12 +184,23 @@ class Zips(MetricsJob):
             'SB_Zip'
         )
 
+    @classmethod
+    def params(cls, datasource, context):
+        log.debug('Starting Delivery Jobs params')
+        params = {}
+        params['hostingServer'] = context.hostingServer
+        params['serviceURL'] = context.serviceURL
+        params['applicationID'] = context.applicationID
+        params['componentLabel'] = context.componentLabel
+        params['zipName'] = context.zipName
+        log.info('params is {}'.format(params))
+        return params
+
     def onSuccess(self, result, config):
-        # log.debug('Success job - result is {}'.format(result))
+        log.debug('Success job - result is {}'.format(result))
         # TODO : cleanup job onSuccess
 
         data = self.new_data()
-
         ds_data = {}
         for success, ddata in result:
             if success:
@@ -194,8 +210,8 @@ class Zips(MetricsJob):
 
         jobs_data = ds_data.get('job', '')
 
+        # TODO: Model new zips
         all_zips_list = list(set([d['zipName'] for d in jobs_data if d['zipName']]))
-        log.debug('all_zips_list 1: {}'.format(all_zips_list))
         service_name = ''
 
         for datasource in config.datasources:
@@ -206,9 +222,7 @@ class Zips(MetricsJob):
             zip_list = [d for d in jobs_data if d['zipName'] == component_label]
             if component_label in all_zips_list:
                 all_zips_list.remove(component_label)
-            log.debug('zip_list: {}'.format(zip_list))
             if zip_list == []:
-                log.debug('zip_list is EMPTY')
                 data['values'][componentID]['dataCount'] = 0
                 data['values'][componentID]['missingCount'] = 0
                 data['events'].append({
@@ -258,29 +272,13 @@ class Zips(MetricsJob):
             om_zip.zipName = zipn
             zip_maps.append(om_zip)
 
+        Act on zips_list, model ?
         '''
-                    rm_zip.append(RelationshipMap(relname='springBootZips',
-                                          modname='ZenPacks.fednot.Delivery.SpringBootZip',
-                                          compname=comp_app,
-                                          objmaps=zip_maps))
-
-        '''
-        '''
-        data['maps'].append(
-            ObjectMap({
-                'relname' : 'dirs',
-                'modname': 'ZenPacks.community.DirFile.Dir',
-                'id': ds.component,
-                'bytesUsed': v,
-                }))
-        '''
-
         if all_zips_list:
             log.debug('all_zips_list is not empty')
             log.debug('all_zips_list: {}'.format(len(all_zips_list)))
+        '''
 
-        log.debug('zip_maps: {}'.format(zip_maps))
-        log.debug('all_zips_list 0: {}'.format(all_zips_list))
         log.debug('Success job - data is {}'.format(data))
         return data
 
