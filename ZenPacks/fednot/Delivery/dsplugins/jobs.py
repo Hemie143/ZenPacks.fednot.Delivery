@@ -272,7 +272,7 @@ class Zips(MetricsJob):
             om_zip.zipName = zipn
             zip_maps.append(om_zip)
 
-        Act on zips_list, model ?
+        # Act on zips_list, model ?
         '''
         if all_zips_list:
             log.debug('all_zips_list is not empty')
