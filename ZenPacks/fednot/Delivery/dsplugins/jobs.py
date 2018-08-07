@@ -267,6 +267,7 @@ class Zips(MetricsJob):
                 })
                 continue
 
+            # TODO: Remove the following unless required to compute age
             last_zip = zip_list[0]
             # Use full set of data for given zipfile
             dataCountSet = set([x['dataCount'] for x in zip_list])
@@ -297,7 +298,6 @@ class Zips(MetricsJob):
             # end of loop for a single zipfile
 
         # Model zipfiles
-        all_zips_list.append('test_zip')
         zip_maps = []
         for zipn in all_zips_list:
             if zipn is None:
