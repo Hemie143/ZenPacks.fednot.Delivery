@@ -79,7 +79,7 @@ class Jobs(MetricsJob):
     @classmethod
     def config_key(cls, datasource, context):
         log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
-                                                    context.serviceName, 'SB_Job'))
+                                                    context.applicationID, 'SB_Job'))
         return (
             context.device().id,
             datasource.getCycleTime(context),
@@ -96,7 +96,7 @@ class Jobs(MetricsJob):
         params['applicationID'] = context.applicationID
         params['componentLabel'] = context.componentLabel
         params['jobName'] = context.jobName
-        log.info('params is {}'.format(params))
+        log.debug('params is {}'.format(params))
         return params
 
     def onSuccess(self, result, config):
@@ -176,11 +176,11 @@ class Zips(MetricsJob):
     @classmethod
     def config_key(cls, datasource, context):
         log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
-                                                    context.serviceName, 'SB_Job'))
+                                                    context.applicationID, 'SB_Zip'))
         return (
             context.device().id,
             datasource.getCycleTime(context),
-            context.serviceName,
+            context.applicationID,
             'SB_Zip'
         )
 
@@ -192,37 +192,67 @@ class Zips(MetricsJob):
         params['serviceURL'] = context.serviceURL
         params['applicationID'] = context.applicationID
         params['componentLabel'] = context.componentLabel
+        params['serviceName'] = context.serviceName
+        params['serviceID'] = context.serviceID
         params['zipName'] = context.zipName
-        log.info('params is {}'.format(params))
+        log.debug('params is {}'.format(params))
         return params
 
     def onSuccess(self, result, config):
+        ' This one is running once per application'
         log.debug('Success job - result is {}'.format(result))
         # TODO : cleanup job onSuccess
+        '''
+        {"zipName":"Fednot_1533306600118","status":"DONE","dataCount":1,"missingCount":0,"jobName":"depositJob",
+            "runDate":{"hour":8,"minute":0,"second":0,"nano":57000000,"year":2018,"month":"AUGUST","dayOfYear":216,
+            "dayOfWeek":"SATURDAY","dayOfMonth":4,"monthValue":8,"chronology":{"calendarType":"iso8601","id":"ISO"}}}
+        '''
 
         data = self.new_data()
         ds_data = {}
+        count = 0
         for success, ddata in result:
             if success:
                 ds = ddata[0]
                 metrics = json.loads(ddata[1])
                 ds_data[ds] = metrics
+                count += 1
 
-        jobs_data = ds_data.get('job', '')
+        ds0 = config.datasources[0]
+        serviceName = ds0.params['serviceName']
+        serviceID = ds0.params['serviceID']
+        service = '{}_{}'.format(serviceName.lower().replace(' ', '_'), serviceID)
+        hostingServer = ds0.params['hostingServer']
 
-        # TODO: Model new zips
-        all_zips_list = list(set([d['zipName'] for d in jobs_data if d['zipName']]))
-        service_name = ''
+        applicationID = ds0.params['applicationID']
+        tag = '{}_{}'.format(ds0.datasource, applicationID)
+        zips_data = ds_data.get(tag, '')
+        all_zips_list = list(set([d['zipName'] for d in zips_data if d['zipName']]))
 
+        # TODO: Analyze whether it should run per component or per content of ds_data
+        # ds_data contains a single entry with a tag that should match the applicationID
+        # The vars computed at the beginning of the loop are unique per application, not per component
         for datasource in config.datasources:
+            # Runs once per zipfile modeled before
             componentID = prepId(datasource.component)
-            service_name = datasource.params['serviceName']
-            r = re.match('zip_{}_?(.*)'.format(service_name), componentID)
-            component_label = r.group(1)
-            zip_list = [d for d in jobs_data if d['zipName'] == component_label]
-            if component_label in all_zips_list:
-                all_zips_list.remove(component_label)
-            if zip_list == []:
+            zipName = datasource.params['zipName']
+            zip_list = [d for d in zips_data if d['zipName'] == zipName]
+            for zip in zip_list:
+                rundate = zip['runDate']
+                # UTC
+                # Don't use datetime.datetime because it takes into account the TZ
+                # datetime_obj = datetime.datetime(rundate['year'], rundate['monthValue'], rundate['dayOfMonth'],
+                #                                        rundate['hour'], rundate['minute'], rundate['second'])
+
+                time_zip = '{}/{:02d}/{:02d} {:02d}:{:02d}:{:02d}'.format(rundate['year'], rundate['monthValue'],
+                                                                          rundate['dayOfMonth'],
+                                                                          rundate['hour'],
+                                                                          rundate['minute'],
+                                                                          rundate['second'])
+                timestring_zip = time.strptime(time_zip, '%Y/%m/%d %H:%M:%S')
+                zip['timestamp'] = calendar.timegm(timestring_zip)
+            zip_list = sorted(zip_list, key=itemgetter('timestamp'), reverse=True)
+            if zip_list == []:          # Component has no entry in JSON output
                 data['values'][componentID]['dataCount'] = 0
                 data['values'][componentID]['missingCount'] = 0
                 data['events'].append({
@@ -231,21 +261,25 @@ class Zips(MetricsJob):
                     'severity': 2,
                     'eventKey': 'ZipHealth',
                     'eventClassKey': 'ZipHealth',
-                    'summary': 'Zip {} has been removed'.format(component_label),
-                    'message': 'Zip {} has been removed'.format(component_label),
+                    'summary': 'Zip {} has been removed'.format(componentID),
+                    'message': 'Zip {} has been removed'.format(componentID),
                     'eventClass': '/Status/App',
                 })
                 continue
 
+            last_zip = zip_list[0]
+            # Use full set of data for given zipfile
             dataCountSet = set([x['dataCount'] for x in zip_list])
             missingCountSet = set([x['missingCount'] for x in zip_list])
 
-            if len(dataCountSet) > 1 or len(missingCountSet) > 1:
+            # If dataCountSet has more than one entry, it means that for the zipfile, some data has been lost
+            # If any value in missingCountSet is different from zero, some data has been lost
+            if len(dataCountSet) > 1 or not(0 in missingCountSet):
                 sev = 4
-                msg = 'Zip {} has lost messages'.format(component_label)
+                msg = 'Zip {} has lost messages'.format(componentID)
             else:
                 sev = 0
-                msg = 'Zip {} is OK'.format(component_label)
+                msg = 'Zip {} is OK'.format(componentID)
 
             data['values'][componentID]['zip_status'] = sev
             data['values'][componentID]['dataCount'] = max(dataCountSet)
@@ -260,24 +294,26 @@ class Zips(MetricsJob):
                 'message': msg,
                 'eventClass': '/Status/App',
             })
+            # end of loop for a single zipfile
 
+        # Model zipfiles
+        all_zips_list.append('test_zip')
         zip_maps = []
         for zipn in all_zips_list:
             if zipn is None:
                 continue
             om_zip = ObjectMap()
-            # om_zip.id = self.prepId('{}_{}'.format(service_name, zipn))
-            om_zip.id = prepId('{}_{}'.format(service_name, zipn))
-            om_zip.title = zipn
+            om_zip.id = prepId('zip_{}_{}'.format(service, zipn))
+            om_zip.title = '{} ({} on {})'.format(zipn, serviceName, hostingServer)
+            om_zip.applicationID = applicationID
             om_zip.zipName = zipn
             zip_maps.append(om_zip)
 
-        # Act on zips_list, model ?
-        '''
-        if all_zips_list:
-            log.debug('all_zips_list is not empty')
-            log.debug('all_zips_list: {}'.format(len(all_zips_list)))
-        '''
+        comp_app = 'springBootApplications/{}'.format(applicationID)
+        data['maps'].append(RelationshipMap(relname='springBootZips',
+                                      modname='ZenPacks.fednot.Delivery.SpringBootZip',
+                                      compname=comp_app,
+                                      objmaps=zip_maps))
 
         log.debug('Success job - data is {}'.format(data))
         return data

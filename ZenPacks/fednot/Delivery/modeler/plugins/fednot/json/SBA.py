@@ -21,7 +21,7 @@ class SBA(PythonPlugin):
 
     requiredProperties = (
         'zSpringBootPort',
-        'zSpringBootApplications',
+        'zSpringBootURI',
         'zIVGroups',
         'zIVUser',
     )
@@ -29,7 +29,7 @@ class SBA(PythonPlugin):
     deviceProperties = PythonPlugin.deviceProperties + requiredProperties
 
     queries = [
-        ['sba', 'http://{}:{}/sba/api/applications'],
+        ['sba', 'http://{}:{}/{}'],
     ]
 
     @staticmethod
@@ -41,6 +41,7 @@ class SBA(PythonPlugin):
         log.debug('{}: Modeling collect'.format(device.id))
 
         port = getattr(device, 'zSpringBootPort', None)
+        uri = getattr(device, 'zSpringBootURI', None)
         ivGroups = getattr(device, 'zIVGroups', None)
         ivUser = getattr(device, 'zIVUser', None)
 
@@ -54,8 +55,8 @@ class SBA(PythonPlugin):
 
         # TODO: remove loop
         for query in self.queries:
-            url = query[1].format(ip_address, port)
-            # TODO: move iv headers in Config Properties
+            url = query[1].format(ip_address, port, uri)
+            log.debug('SBA collect url: {}'.format(url))
             d = sem.run(getPage, url,
                         headers={
                             "Accept": "application/json",
@@ -82,6 +83,7 @@ class SBA(PythonPlugin):
             - An ObjectMap, for the device device information
             - A list of RelationshipMaps and ObjectMaps, both
         """
+        log.debug('SBA process results: {}'.format(results))
 
         self.result_data = {}
         for success, result in results:

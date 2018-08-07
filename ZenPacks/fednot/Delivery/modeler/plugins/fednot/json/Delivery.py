@@ -133,10 +133,10 @@ class Delivery(PythonPlugin):
             # {u'mgmtURL': u'http://dvb-app-l01.dev.credoc.be:8105/delivery-service_v1/management',
             # u'healthURL': u'http://dvb-app-l01.dev.credoc.be:8105/delivery-service_v1/management/health',
             # u'id': u'app_Delivery Service_9ffe1d3e', u'hostingServer': u'dvb-app-l01.dev.credoc.be'}
-            serviceName = app.get('serviceName', '')
-            serviceID = app.get('serviceID', '')
+            serviceName = app.get('serviceName', '')                                        # Delivery Service
+            serviceID = app.get('serviceID', '')                                            # 4fac876d
             service = '{}_{}'.format(serviceName.lower().replace(' ', '_'), serviceID)
-            app_id = app.get('id', '')
+            app_id = app.get('id', '')                                                      # app_delivery_service_4fac876d
             comp_app = 'springBootApplications/{}'.format(app_id)
 
             comp_maps = []
@@ -178,7 +178,7 @@ class Delivery(PythonPlugin):
                         continue
                     om_zip = ObjectMap()
                     om_zip.id = self.prepId('zip_{}_{}'.format(service, zipn))
-                    om_zip.title = '{} ({})'.format(zipn, app.get('hostingServer'))
+                    om_zip.title = '{} ({} on {})'.format(zipn, serviceName, app.get('hostingServer'))
                     om_zip.applicationID = app_id
                     om_zip.zipName = zipn
                     zip_maps.append(om_zip)
