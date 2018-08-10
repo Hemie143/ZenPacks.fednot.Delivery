@@ -133,9 +133,10 @@ class Delivery(PythonPlugin):
             # {u'mgmtURL': u'http://dvb-app-l01.dev.credoc.be:8105/delivery-service_v1/management',
             # u'healthURL': u'http://dvb-app-l01.dev.credoc.be:8105/delivery-service_v1/management/health',
             # u'id': u'app_Delivery Service_9ffe1d3e', u'hostingServer': u'dvb-app-l01.dev.credoc.be'}
-            serviceName = app.get('serviceName', '')                                        # Delivery Service
-            serviceID = app.get('serviceID', '')                                            # 4fac876d
-            service = '{}_{}'.format(serviceName.lower().replace(' ', '_'), serviceID)
+            applicationName = app.get('applicationName', '')                                # Delivery Service
+            # TODO: test whether it's a Delivery Service
+            applicationID = app.get('applicationID', '')                                    # 4fac876d
+            applicationNameID = '{}_{}'.format(applicationName.lower().replace(' ', '_'), applicationID)
             app_id = app.get('id', '')                                                      # app_delivery_service_4fac876d
             comp_app = 'springBootApplications/{}'.format(app_id)
 
@@ -147,11 +148,11 @@ class Delivery(PythonPlugin):
                         continue
                     om_comp = ObjectMap()
                     # TODO: Avoid space in component name
-                    om_comp.id = self.prepId('comp_{}_{}'.format(service, comp_name))
-                    om_comp.title = '{} ({} on {})'.format(comp_name, serviceName, app.get('hostingServer'))
+                    om_comp.id = self.prepId('comp_{}_{}'.format(applicationNameID, comp_name))
+                    om_comp.title = '{} ({} on {})'.format(comp_name, applicationName, app.get('hostingServer'))
                     om_comp.applicationID = app_id
-                    om_comp.componentLabel = comp_name
-                    # om_comp.serviceName = app_id
+                    om_comp.applicationName = applicationName
+                    om_comp.componentName = comp_name
                     comp_maps.append(om_comp)
 
             rm_comp.append(RelationshipMap(relname='springBootComponents',
@@ -166,10 +167,10 @@ class Delivery(PythonPlugin):
                 jobs_list = set([d['jobName'] for d in job_data])
                 for job in jobs_list:
                     om_job = ObjectMap()
-                    om_job.id = self.prepId('job_{}_{}'.format(service, job))
-                    om_job.title = '{} ({} on {})'.format(job, serviceName, app.get('hostingServer'))
-                    # om_job.serviceName = app_id
+                    om_job.id = self.prepId('job_{}_{}'.format(applicationNameID, job))
+                    om_job.title = '{} ({} on {})'.format(job, applicationName, app.get('hostingServer'))
                     om_job.applicationID = app_id
+                    om_job.applicationName = applicationName
                     om_job.jobName = job
                     job_maps.append(om_job)
                 zips_list = set([d['zipName'] for d in job_data])
@@ -177,9 +178,10 @@ class Delivery(PythonPlugin):
                     if zipn is None:
                         continue
                     om_zip = ObjectMap()
-                    om_zip.id = self.prepId('zip_{}_{}'.format(service, zipn))
-                    om_zip.title = '{} ({} on {})'.format(zipn, serviceName, app.get('hostingServer'))
+                    om_zip.id = self.prepId('zip_{}_{}'.format(applicationNameID, zipn))
+                    om_zip.title = '{} ({} on {})'.format(zipn, applicationName, app.get('hostingServer'))
                     om_zip.applicationID = app_id
+                    om_zip.applicationName = applicationName
                     om_zip.zipName = zipn
                     zip_maps.append(om_zip)
 
@@ -193,18 +195,18 @@ class Delivery(PythonPlugin):
                                           objmaps=zip_maps))
 
             om_order = ObjectMap()
-            om_order.id = self.prepId('order_{}'.format(service))
-            om_order.title = 'Order ({} on {})'.format(serviceName, app.get('hostingServer'))
-            om_order.serviceName = app_id
+            om_order.id = self.prepId('order_{}'.format(applicationNameID))
+            om_order.title = 'Order ({} on {})'.format(applicationName, app.get('hostingServer'))
+            om_order.applicationName = applicationName
             rm_misc.append(RelationshipMap(relname='springBootOrders',
                                            modname='ZenPacks.fednot.Delivery.SpringBootOrder',
                                            compname=comp_app,
                                            objmaps=[om_order]))
 
             om_jvm = ObjectMap()
-            om_jvm.id = self.prepId('jvm_{}'.format(service))
-            om_jvm.title = 'JVM ({} on {})'.format(serviceName, app.get('hostingServer'))
-            om_jvm.serviceName = app_id
+            om_jvm.id = self.prepId('jvm_{}'.format(applicationNameID))
+            om_jvm.title = 'JVM ({} on {})'.format(applicationName, app.get('hostingServer'))
+            om_jvm.applicationName = applicationName
             rm_misc.append(RelationshipMap(relname='springBootJVMs',
                                            modname='ZenPacks.fednot.Delivery.SpringBootJVM',
                                            compname=comp_app,

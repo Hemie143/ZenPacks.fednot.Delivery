@@ -38,11 +38,11 @@ class JVM(PythonDataSourcePlugin):
     @classmethod
     def config_key(cls, datasource, context):
         log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
-                                                    context.serviceName, 'SB_JVM'))
+                                                    context.applicationName, 'SB_JVM'))
         return (
             context.device().id,
             datasource.getCycleTime(context),
-            context.applicationID,
+            context.id,
             'SB_JVM'
         )
 
@@ -51,7 +51,7 @@ class JVM(PythonDataSourcePlugin):
         log.debug('Starting Delivery JVM params')
         params = {}
         params['serviceURL'] = context.serviceURL
-        params['applicationID'] = context.applicationID
+        params['applicationNameID'] = context.applicationNameID
         log.debug('params is {}'.format(params))
         return params
 
@@ -64,14 +64,14 @@ class JVM(PythonDataSourcePlugin):
             log.error("%s: IP Address cannot be empty", device.id)
             returnValue(None)
 
-        serviceList = []
+        applicationList = []
         deferreds = []
         sem = DeferredSemaphore(1)
         for datasource in config.datasources:
-            applicationID = datasource.params['applicationID']
-            if applicationID in serviceList:
+            applicationNameID = datasource.params['applicationNameID']        # app_delivery_service_8df95ae5
+            if applicationNameID in applicationList:
                 continue
-            serviceList.append(applicationID)
+            applicationList.append(applicationNameID)
             serviceURL = datasource.params['serviceURL']
             url = self.urls[datasource.datasource].format(serviceURL)
             # TODO : move headers to Config properties
@@ -83,7 +83,7 @@ class JVM(PythonDataSourcePlugin):
                             "iv-user": datasource.zIVUser,
                         },
                         )
-            tag = '{}_{}'.format(datasource.datasource, applicationID)      # order_app_delivery_service_3db30547
+            tag = '{}_{}'.format(datasource.datasource, applicationNameID)      # order_delivery_service_3db30547
             d.addCallback(self.add_tag, tag)
             deferreds.append(d)
         return DeferredList(deferreds)
@@ -103,8 +103,8 @@ class JVM(PythonDataSourcePlugin):
 
         ds0 = config.datasources[0]
         componentID = prepId(ds0.component)
-        applicationID = ds0.params['applicationID']
-        tag = '{}_{}'.format(ds0.datasource, applicationID)
+        applicationNameID = ds0.params['applicationNameID']
+        tag = '{}_{}'.format(ds0.datasource, applicationNameID)
         jvm_data = ds_data.get(tag, '')
         if not jvm_data:
             # TODO: Add event: no data collected

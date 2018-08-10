@@ -49,15 +49,15 @@ class MetricsJob(PythonDataSourcePlugin):
             log.error("%s: IP Address cannot be empty", device.id)
             returnValue(None)
 
-        # Gather the info about services
-        serviceList = []
+        # Gather the info about applications
+        applicationList = []
         deferreds = []
         sem = DeferredSemaphore(1)
         for datasource in config.datasources:
-            applicationID = datasource.params['applicationID']
-            if applicationID in serviceList:
+            applicationNameID = datasource.params['applicationNameID']
+            if applicationNameID in applicationList:
                 continue
-            serviceList.append(applicationID)
+            applicationList.append(applicationNameID)
             serviceURL = datasource.params['serviceURL']
             url = self.urls[datasource.datasource].format(serviceURL)
             d = sem.run(getPage, url,
@@ -68,7 +68,7 @@ class MetricsJob(PythonDataSourcePlugin):
                             "iv-user": datasource.zIVUser,
                         },
                         )
-            tag = '{}_{}'.format(datasource.datasource, applicationID)
+            tag = '{}_{}'.format(datasource.datasource, applicationNameID)
             d.addCallback(self.add_tag, tag)
             deferreds.append(d)
         return DeferredList(deferreds)
@@ -79,11 +79,11 @@ class Jobs(MetricsJob):
     @classmethod
     def config_key(cls, datasource, context):
         log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
-                                                    context.applicationID, 'SB_Job'))
+                                                    context.applicationNameID, 'SB_Job'))
         return (
             context.device().id,
             datasource.getCycleTime(context),
-            context.applicationID,
+            context.applicationNameID,
             'SB_Job'
         )
 
@@ -93,8 +93,8 @@ class Jobs(MetricsJob):
         params = {}
         params['hostingServer'] = context.hostingServer
         params['serviceURL'] = context.serviceURL
-        params['applicationID'] = context.applicationID
-        params['componentLabel'] = context.componentLabel
+        params['applicationName'] = context.applicationName
+        params['applicationNameID'] = context.applicationNameID
         params['jobName'] = context.jobName
         log.debug('params is {}'.format(params))
         return params
@@ -103,8 +103,8 @@ class Jobs(MetricsJob):
         log.debug('Success job - result is {}'.format(result))
         # TODO : cleanup job onSuccess
 
-        status_maps = {'DONE': [0, 'Job {} is OK'],
-                       'ERROR': [5, 'Job {} is in error']
+        status_maps = {'DONE': [0, 'Job {} ({} on {}) is OK'],
+                       'ERROR': [5, 'Job {} ({} on {}) is in error']
                        }
 
         data = self.new_data()
@@ -116,14 +116,18 @@ class Jobs(MetricsJob):
                 metrics = json.loads(ddata[1])
                 ds_data[ds] = metrics
 
+
+
         # TODO: Check data content
         # TODO: Model new jobs
         timestamp_now = calendar.timegm(time.gmtime())
         for datasource in config.datasources:
             componentID = prepId(datasource.component)
-            applicationID = datasource.params['applicationID']
+            hostingServer = datasource.params['hostingServer']
+            applicationName = datasource.params['applicationName']
+            applicationNameID = datasource.params['applicationNameID']
             jobName = datasource.params['jobName']
-            tag = '{}_{}'.format(datasource.datasource, applicationID)
+            tag = '{}_{}'.format(datasource.datasource, applicationNameID)
             jobs_data = ds_data.get(tag, '')
             job_list = [d for d in jobs_data if d['jobName'] == jobName]
             for job in job_list:
@@ -144,16 +148,17 @@ class Jobs(MetricsJob):
             last_job = sorted(job_list, key=itemgetter('timestamp'), reverse=True)[0]
             job_status = last_job['status']
             job_age = (float(timestamp_now) - float(last_job['timestamp'])) / 60.0
-            job_status_map = status_maps.get(job_status, [3, 'Job {} has an unknown issue'])
+            job_status_map = status_maps.get(job_status, [3, 'Job {} ({} on {}) has an unknown issue'])
             data['values'][componentID]['status'] = job_status_map[0]
+            msg = job_status_map[1].format(jobName, applicationName, hostingServer)
             data['events'].append({
                 'device': config.id,
                 'component': componentID,
                 'severity': job_status_map[0],
                 'eventKey': 'JobHealth',
                 'eventClassKey': 'JobHealth',
-                'summary': job_status_map[1].format(componentID),
-                'message': job_status_map[1].format(componentID),
+                'summary': msg,
+                'message': msg,
                 'eventClass': '/Status/App',
                 'zipName': last_job['zipName']
             })
@@ -176,11 +181,11 @@ class Zips(MetricsJob):
     @classmethod
     def config_key(cls, datasource, context):
         log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
-                                                    context.applicationID, 'SB_Zip'))
+                                                    context.applicationNameID, 'SB_Zip'))
         return (
             context.device().id,
             datasource.getCycleTime(context),
-            context.applicationID,
+            context.applicationNameID,
             'SB_Zip'
         )
 
@@ -190,10 +195,9 @@ class Zips(MetricsJob):
         params = {}
         params['hostingServer'] = context.hostingServer
         params['serviceURL'] = context.serviceURL
-        params['applicationID'] = context.applicationID
-        params['componentLabel'] = context.componentLabel
-        params['serviceName'] = context.serviceName
-        params['serviceID'] = context.serviceID
+        params['applicationName'] = context.applicationName
+        params['applicationNameID'] = context.applicationNameID
+        params['applicationComponentID'] = context.applicationComponentID
         params['zipName'] = context.zipName
         log.debug('params is {}'.format(params))
         return params
@@ -219,18 +223,15 @@ class Zips(MetricsJob):
                 count += 1
 
         ds0 = config.datasources[0]
-        serviceName = ds0.params['serviceName']
-        serviceID = ds0.params['serviceID']
-        service = '{}_{}'.format(serviceName.lower().replace(' ', '_'), serviceID)
+        applicationName = ds0.params['applicationName']                                     # Delivery Service
+        applicationNameID = ds0.params['applicationNameID']
+        tag = '{}_{}'.format(ds0.datasource, applicationNameID)
         hostingServer = ds0.params['hostingServer']
-
-        applicationID = ds0.params['applicationID']
-        tag = '{}_{}'.format(ds0.datasource, applicationID)
         zips_data = ds_data.get(tag, '')
         all_zips_list = list(set([d['zipName'] for d in zips_data if d['zipName']]))
 
         # TODO: Analyze whether it should run per component or per content of ds_data
-        # ds_data contains a single entry with a tag that should match the applicationID
+        # ds_data contains a single entry with a tag that should match the applicationNameID
         # The vars computed at the beginning of the loop are unique per application, not per component
         for datasource in config.datasources:
             # Runs once per zipfile modeled before
@@ -255,14 +256,15 @@ class Zips(MetricsJob):
             if zip_list == []:          # Component has no entry in JSON output
                 data['values'][componentID]['dataCount'] = 0
                 data['values'][componentID]['missingCount'] = 0
+                msg = 'Zip {} ({} on {}) has been removed'.format(componentID, applicationName, hostingServer)
                 data['events'].append({
                     'device': config.id,
                     'component': componentID,
                     'severity': 2,
                     'eventKey': 'ZipHealth',
                     'eventClassKey': 'ZipHealth',
-                    'summary': 'Zip {} has been removed'.format(componentID),
-                    'message': 'Zip {} has been removed'.format(componentID),
+                    'summary': msg,
+                    'message': msg,
                     'eventClass': '/Status/App',
                 })
                 continue
@@ -277,10 +279,10 @@ class Zips(MetricsJob):
             # If any value in missingCountSet is different from zero, some data has been lost
             if len(dataCountSet) > 1 or not(0 in missingCountSet):
                 sev = 4
-                msg = 'Zip {} has lost messages'.format(componentID)
+                msg = 'Zip {} ({} on {}) has lost messages'.format(componentID, applicationName, hostingServer)
             else:
                 sev = 0
-                msg = 'Zip {} is OK'.format(componentID)
+                msg = 'Zip {} ({} on {}) is OK'.format(componentID, applicationName, hostingServer)
 
             data['values'][componentID]['zip_status'] = sev
             data['values'][componentID]['dataCount'] = max(dataCountSet)
@@ -303,13 +305,14 @@ class Zips(MetricsJob):
             if zipn is None:
                 continue
             om_zip = ObjectMap()
-            om_zip.id = prepId('zip_{}_{}'.format(service, zipn))
-            om_zip.title = '{} ({} on {})'.format(zipn, serviceName, hostingServer)
-            om_zip.applicationID = applicationID
+            om_zip.id = prepId('zip_{}_{}'.format(applicationNameID, zipn))
+            om_zip.title = '{} ({} on {})'.format(zipn, applicationName, hostingServer)
+            om_zip.applicationName = applicationName
             om_zip.zipName = zipn
             zip_maps.append(om_zip)
 
-        comp_app = 'springBootApplications/{}'.format(applicationID)
+        applicationComponentID = ds0.params['applicationComponentID']
+        comp_app = 'springBootApplications/{}'.format(applicationComponentID)
         data['maps'].append(RelationshipMap(relname='springBootZips',
                                       modname='ZenPacks.fednot.Delivery.SpringBootZip',
                                       compname=comp_app,

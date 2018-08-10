@@ -38,11 +38,11 @@ class Orders(PythonDataSourcePlugin):
     @classmethod
     def config_key(cls, datasource, context):
         log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
-                                                    context.serviceName, 'SB_Job'))
+                                                    context.applicationName, 'SB_Job'))
         return (
             context.device().id,
             datasource.getCycleTime(context),
-            context.applicationID,
+            context.id,
             'SB_Order'
         )
 
@@ -51,7 +51,7 @@ class Orders(PythonDataSourcePlugin):
         log.debug('Starting Delivery Jobs params')
         params = {}
         params['serviceURL'] = context.serviceURL
-        params['applicationID'] = context.applicationID
+        params['applicationNameID'] = context.applicationNameID
         log.debug('params is {}'.format(params))
         return params
 
@@ -64,14 +64,14 @@ class Orders(PythonDataSourcePlugin):
             log.error("%s: IP Address cannot be empty", device.id)
             returnValue(None)
 
-        serviceList = []
+        applicationList = []
         deferreds = []
         sem = DeferredSemaphore(1)
         for datasource in config.datasources:
-            applicationID = datasource.params['applicationID']
-            if applicationID in serviceList:
+            applicationNameID = datasource.params['applicationNameID']
+            if applicationNameID in applicationList:
                 continue
-            serviceList.append(applicationID)
+            applicationList.append(applicationNameID)
             serviceURL = datasource.params['serviceURL']
             url = self.urls[datasource.datasource].format(serviceURL)
             # TODO : move headers to Config properties
@@ -83,7 +83,7 @@ class Orders(PythonDataSourcePlugin):
                             "iv-user": datasource.zIVUser,
                         },
                         )
-            tag = '{}_{}'.format(datasource.datasource, applicationID)      # order_app_delivery_service_3db30547
+            tag = '{}_{}'.format(datasource.datasource, applicationNameID)      # order_app_delivery_service_3db30547
             d.addCallback(self.add_tag, tag)
             deferreds.append(d)
         return DeferredList(deferreds)
@@ -101,8 +101,8 @@ class Orders(PythonDataSourcePlugin):
 
         ds0 = config.datasources[0]
         componentID = prepId(ds0.component)
-        applicationID = ds0.params['applicationID']
-        tag = '{}_{}'.format(ds0.datasource, applicationID)
+        applicationNameID = ds0.params['applicationNameID']
+        tag = '{}_{}'.format(ds0.datasource, applicationNameID)
         orders_data = ds_data.get(tag, '')
 
         total_check = 0

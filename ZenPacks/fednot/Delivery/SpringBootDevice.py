@@ -13,8 +13,9 @@ class SpringBootDevice(schema.SpringBootDevice):
             app_dict = {}
             app_dict['id'] = app.id
             app_dict['title'] = app.title
-            app_dict['serviceID'] = app.serviceID
-            app_dict['serviceName'] = app.serviceName
+            app_dict['applicationID'] = app.applicationID
+            app_dict['applicationName'] = app.applicationName
+            app_dict['applicationComponentID'] = app.applicationComponentID
             app_dict['mgmtURL'] = app.mgmtURL
             app_dict['healthURL'] = app.healthURL
             app_dict['serviceURL'] = app.serviceURL

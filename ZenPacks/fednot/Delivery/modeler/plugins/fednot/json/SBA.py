@@ -103,11 +103,12 @@ class SBA(PythonPlugin):
             app_name = app_label.lower().replace(' ', '_')
             app_id = app.get('id', '')
             om_app.id = self.prepId('app_{}_{}'.format(app_name, app_id))
-            om_app.serviceName = app_label
-            om_app.serviceID = app_id
-            om_app.componentLabel = ''
+            om_app.applicationComponentID = om_app.id
+            om_app.applicationName = app_label
+            om_app.applicationNameID = self.prepId('{}_{}'.format(app_name, app_id))
+            om_app.componentName = ''
             # TODO: try to get rid of this, but info required for collectors
-            om_app.applicationID = om_app.id
+            om_app.applicationID = app_id
             mgmtURL = app.get('managementUrl', '')
             om_app.mgmtURL = mgmtURL
             om_app.healthURL = app.get('healthUrl', '')

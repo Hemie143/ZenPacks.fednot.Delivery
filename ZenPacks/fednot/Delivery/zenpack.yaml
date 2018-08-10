@@ -49,23 +49,24 @@ classes:
         renderer: Zenoss.render.severity
         grid_display: true
         label_width: 40
-      statusString:
-        label: Status Label
-        type: string
-        grid_display: false
-      serviceID:
-        label: serviceID
-        grid_display: true
-      serviceName:
-        label: serviceName
-        grid_display: false
-        label_width: 100
       applicationID:
         label: applicationID
         grid_display: false
         label_width: 100
-      componentLabel:
-        label: componentLabel
+      applicationName:
+        label: applicationName
+        grid_display: false
+        label_width: 100
+      applicationNameID:
+        label: applicationNameID
+        grid_display: false
+        label_width: 100
+      applicationComponentID:
+        label: applicationComponentID
+        grid_display: false
+        label_width: 100
+      componentName:
+        label: componentName
         grid_display: false
         label_width: 30
       mgmtURL:
@@ -100,20 +101,8 @@ classes:
         renderer: Zenoss.render.severity
         grid_display: true
         label_width: 40
-      statusString:
-        label: Status Label
-        type: string
-        grid_display: false
-      serviceName:
-        label: serviceName
-        grid_display: false
-        label_width: 100
-      applicationID:
-        label: applicationID
-        grid_display: false
-        label_width: 100
-      componentLabel:
-        label: componentLabel
+      componentName:
+        label: componentName
         grid_display: false
         label_width: 30
     relationships:
@@ -140,14 +129,6 @@ classes:
         renderer: Zenoss.render.severity
         grid_display: true
         label_width: 40
-      statusString:
-        label: Status Label
-        type: string
-        grid_display: false
-      serviceName:
-        label: serviceName
-        grid_display: true
-        label_width: 350
 
   SpringBootZip:
     base: [zenpacklib.Component]
@@ -183,10 +164,6 @@ classes:
     properties:
       DEFAULTS:
         grid_display: false
-      serviceName:
-        label: serviceName
-        grid_display: true
-        label_width: 300
 
   SpringBootJVM:
     base: [zenpacklib.Component]
@@ -195,10 +172,6 @@ classes:
     properties:
       DEFAULTS:
         grid_display: false
-      serviceName:
-        label: serviceName
-        grid_display: true
-        label_width: 300
 
 device_classes:
   /Server/Linux/Applications:

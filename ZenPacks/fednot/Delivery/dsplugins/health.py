@@ -36,25 +36,26 @@ class Health(PythonDataSourcePlugin):
     @classmethod
     def config_key(cls, datasource, context):
         log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
-                                                     context.serviceName, 'SB_health'))
+                                                     context.applicationName, 'SB_health'))
 
         return (
             context.device().id,
             datasource.getCycleTime(context),
-            context.serviceName,
+            context.applicationName,
             'SB_health'
         )
 
     @classmethod
     def params(cls, datasource, context):
-        log.debug('Starting Delivery health params')
+        log.info('BBB Starting Delivery health params')
         params = {}
         params['hostingServer'] = context.hostingServer
         params['serviceURL'] = context.serviceURL
-        params['serviceName'] = context.serviceName
-        params['applicationID'] = context.applicationID
-        params['componentLabel'] = context.componentLabel
-        log.debug('params is {}'.format(params))
+        params['applicationComponentID'] = context.applicationComponentID
+        params['applicationName'] = context.applicationName
+        params['applicationNameID'] = context.applicationNameID
+        params['componentName'] = context.componentName
+        log.info('BBB params is {}'.format(params))
         return params
 
     def collect(self, config):
@@ -67,15 +68,16 @@ class Health(PythonDataSourcePlugin):
             log.error("%s: IP Address cannot be empty", device.id)
             returnValue(None)
 
-        # Gather the info about services
-        serviceList = []
+        # Gather the info about applications
+        applicationList = []
         deferreds = []
         sem = DeferredSemaphore(1)
         for datasource in config.datasources:
-            applicationID = datasource.params['applicationID']
-            if applicationID in serviceList:
+            applicationComponentID = datasource.params['applicationComponentID']
+            if applicationComponentID in applicationList:
                 continue
-            serviceList.append(applicationID)
+            applicationList.append(applicationComponentID)
+            applicationNameID = datasource.params['applicationNameID']
             serviceURL = datasource.params['serviceURL']
             url = self.urls[datasource.datasource].format(serviceURL)
             d = sem.run(getPage, url,
@@ -86,7 +88,7 @@ class Health(PythonDataSourcePlugin):
                             "iv-user": datasource.zIVUser,
                         },
                         )
-            tag = '{}_{}'.format(datasource.datasource, applicationID)
+            tag = '{}_{}'.format(datasource.datasource, applicationNameID)
             d.addCallback(self.add_tag, tag)
             deferreds.append(d)
         return DeferredList(deferreds)
@@ -108,24 +110,31 @@ class Health(PythonDataSourcePlugin):
         # TODO: Check content data & create event
         for datasource in config.datasources:
             componentID = prepId(datasource.component)          # comp_delivery_service_3db30547_jobs
-            applicationID = datasource.params['applicationID']
-            tag = '{}_{}'.format(datasource.datasource, applicationID)
+            applicationName = datasource.params['applicationName']
+            applicationNameID = datasource.params['applicationNameID']
+            applicationComponentID = datasource.params['applicationComponentID']
+            tag = '{}_{}'.format(datasource.datasource, applicationNameID)
+            hostingServer = datasource.params['hostingServer']
             health_data = ds_data.get(tag, '')
-            if componentID == applicationID:
+            if componentID == applicationComponentID:
                 # Application health
-                component_label = datasource.params['serviceName']
                 if health_data:
                     health = health_data.get('status', 'DOWN')
                 else:
                     health = "DOWN"
+                msg1 = 'Application {} on {}'.format(applicationName, hostingServer)
             else:
                 # Application component health
-                component_label = datasource.params['componentLabel']
-                health = health_data.get(component_label, '')
+                componentName = datasource.params['componentName']
+                health = health_data.get(componentName, '')
                 if health:
                     health = health.get('status')
+                msg1 = 'Component {} ({} on {})'.format(componentName, applicationName, hostingServer)
             # TODO: Add status OUT_OF_SERVICE & UNKNOWN
             # TODO: Correct eventClass
+            msg = '{} - Status is {}'.format(msg1, health.title())
+
+            # TODO: use mapping instead of repeting code
             if health.upper() == "UP":
                 data['values'][componentID]['status'] = 0
                 data['events'].append({
@@ -134,8 +143,8 @@ class Health(PythonDataSourcePlugin):
                     'severity': 0,
                     'eventKey': 'SBHealth',
                     'eventClassKey': 'SBHealth',
-                    'summary': 'Application {} - Status is Up'.format(component_label),
-                    'eventClass': '/Status',
+                    'summary': msg,
+                    'eventClass': '/Status/App',
                     })
             elif health.upper() == "DOWN":
                 data['values'][componentID]['status'] = 5
@@ -145,8 +154,8 @@ class Health(PythonDataSourcePlugin):
                     'severity': 5,
                     'eventKey': 'SBHealth',
                     'eventClassKey': 'SBHealth',
-                    'summary': 'Application {} - Status is Down'.format(component_label),
-                    'eventClass': '/Status',
+                    'summary': msg,
+                    'eventClass': '/Status/App',
                     })
             else:
                 data['values'][componentID]['status'] = 3
@@ -156,8 +165,8 @@ class Health(PythonDataSourcePlugin):
                     'severity': 3,
                     'eventKey': 'SBHealth',
                     'eventClassKey': 'SBHealth',
-                    'summary': 'Application {} - Status is {}'.format(component_label, health.title()),
-                    'eventClass': '/Status',
+                    'summary': msg,
+                    'eventClass': '/Status/App',
                     })
         log.debug('Success data: {}'.format(data))
         return data
