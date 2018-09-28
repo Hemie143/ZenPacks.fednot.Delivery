@@ -32,7 +32,6 @@ class Health(PythonDataSourcePlugin):
     def add_tag(result, label):
         return tuple((label, result))
 
-    # TODO: check config_key broker
     @classmethod
     def config_key(cls, datasource, context):
         log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
@@ -61,7 +60,6 @@ class Health(PythonDataSourcePlugin):
     def collect(self, config):
         log.debug('Starting Delivery health collect')
         # Runs once at Application level and once more at components level
-        # TODO: test without plugin_classname for components in YAML
 
         ip_address = config.manageIp
         if not ip_address:
@@ -131,10 +129,9 @@ class Health(PythonDataSourcePlugin):
                     health = health.get('status')
                 msg1 = 'Component {} ({} on {})'.format(componentName, applicationName, hostingServer)
             # TODO: Add status OUT_OF_SERVICE & UNKNOWN
-            # TODO: Correct eventClass
             msg = '{} - Status is {}'.format(msg1, health.title())
 
-            # TODO: use mapping instead of repeting code
+            # TODO: use mapping instead of repeating code
             if health.upper() == "UP":
                 data['values'][componentID]['status'] = 0
                 data['events'].append({

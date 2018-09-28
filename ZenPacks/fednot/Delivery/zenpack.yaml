@@ -8,7 +8,7 @@ zProperties:
   zSpringBootURI:
     category: SpringBoot
     type: string
-    default: 'sba/api/applications'
+    default: 'sprint-boot-admin_v1/api/applications'
   zIVGroups:
     category: SpringBoot
     type: string
@@ -23,6 +23,86 @@ class_relationships:
   - SpringBootApplication 1:MC SpringBootZip
   - SpringBootApplication 1:MC SpringBootOrder
   - SpringBootApplication 1:MC SpringBootJVM
+
+event_classes:
+  /Status/App/Delivery:
+    remove: false
+  /Status/App/Delivery/Job:
+    remove: false
+    transform: "if int(float(evt.current)) == 0:\n    msg = 'Junction {}: OK'.format(evt.component)\n\
+      if int(float(evt.current)) == 1:\n    msg = 'Junction {}: failure '.format(evt.component)\n\
+      elif int(float(evt.current)) == 2:\n    msg = 'Junction {}: major failure'.format(evt.component)\n\
+      \nevt.message = msg\nevt.summary = msg"
+    transform: |+
+      import time
+      import datetime
+
+      if 'missing' in evt.eventKey:
+          value = int(float(evt.current))
+          if value > 1:
+              msg = 'Job {} - {} messages missing'.format(component.name(), value)
+          else:
+              msg = 'Job {} - {} message missing'.format(component.name(), value)
+          evt.summary = msg
+          evt.message = msg
+      elif 'job_age' in evt.eventKey:
+
+          '''
+          'barcodeJob':             Runs once an hour between 18:00 and 00:00
+          'depositJob':              Runs once an hour between 11:00 and 12:00
+          'jmsNotificationJob':   Runs every 5 minutes
+          'uploadZipJob':          Runs at hour and 10 and 30 minutes
+          'validationJob':           Runs at hour and 0, 25 and 45 minutes
+          '''
+
+          # The following should be closer to cron format, and code should be handle more complex syntax
+          job_map = {
+                             'barcodeJob': [18, 0, 65],           # running period start, end, max_value during running period
+                             'depositJob': [11, 12, 65],
+                             'jmsNotificationJob': [0, 24, 10],
+                             'uploadZipJob': [0, 24, 45],
+                             'validationJob': [0, 24, 30],
+                             }
+
+          current_time = datetime.datetime.now()
+          current_hour = current_time.hour
+          current_minute = current_time.minute
+          component_name = component.name()
+          age = int(round(float(evt.current), 0))
+          job_name = component_name.split()[0]
+
+          job_specs = job_map[job_name]
+          run_start_hour = job_specs[0]
+          run_stop_hour = job_specs[1]
+          run_threshold = job_specs[2]
+
+          if run_stop_hour < run_start_hour:
+              if current_hour < run_start_hour:
+                  run_start_hour = 0
+              elif current_hour >= run_start_hour:
+                  run_stop_hour = 24
+
+          if run_start_hour <= current_hour < run_stop_hour:
+              # Within running period for jobs
+              pass
+          else:
+                 # Jobs aren't running anymore
+                 if current_hour < run_start_hour:
+                     run_threshold = (current_hour - run_stop_hour +24) * 60 + current_minute + 5
+                 elif current_hour >= run_stop_hour:
+                     run_threshold = (current_hour - run_stop_hour) * 60 + current_minute + 5
+
+          if age < run_threshold:
+             evt.severity = 0
+          else:
+             evt.severity = 5
+
+          msg = '{} - Job is {} minutes old - {}'.format(component_name, age, run_threshold)
+          evt.summary = msg
+          evt.message = msg
+
+  /Status/App/Delivery/Order/:
+    remove: False
 
 classes:
   SpringBootDevice:
@@ -242,6 +322,17 @@ device_classes:
                   RRA:LAST:0.5:6:600
                   RRA:LAST:0.5:24:600
                   RRA:LAST:0.5:288:600'
+        thresholds:
+          missing:
+            dsnames: [job_missingCount]
+            eventClass: /Status/App/Delivery/Job
+            severity: 5
+            maxval: 0.1
+          age:
+            dsnames: [job_age]
+            eventClass: /Status/App/Delivery/Job
+            severity: 5
+            maxval: 0.1
         graphs:
           Messages Counts:
             units: messages
@@ -344,7 +435,7 @@ device_classes:
                   RRA:LAST:0.5:24:600
                   RRA:LAST:0.5:288:600'
               missing_barcode:
-                rrdtype: DERIVE
+                rrdtype: GAUGE
                 createCmd: 'RRA:AVERAGE:0.5:1:600
                   RRA:AVERAGE:0.5:6:600
                   RRA:AVERAGE:0.5:24:600
@@ -357,7 +448,7 @@ device_classes:
                   RRA:LAST:0.5:24:600
                   RRA:LAST:0.5:288:600'
               missing_deposit:
-                rrdtype: DERIVE
+                rrdtype: GAUGE
                 createCmd: 'RRA:AVERAGE:0.5:1:600
                   RRA:AVERAGE:0.5:6:600
                   RRA:AVERAGE:0.5:24:600
@@ -370,7 +461,7 @@ device_classes:
                   RRA:LAST:0.5:24:600
                   RRA:LAST:0.5:288:600'
               missing_validation:
-                rrdtype: DERIVE
+                rrdtype: GAUGE
                 createCmd: 'RRA:AVERAGE:0.5:1:600
                   RRA:AVERAGE:0.5:6:600
                   RRA:AVERAGE:0.5:24:600
@@ -448,7 +539,7 @@ device_classes:
                   RRA:LAST:0.5:24:600
                   RRA:LAST:0.5:288:600'
               validation_error:
-                rrdtype: DERIVE
+                rrdtype: GAUGE
                 createCmd: 'RRA:AVERAGE:0.5:1:600
                   RRA:AVERAGE:0.5:6:600
                   RRA:AVERAGE:0.5:24:600
@@ -473,6 +564,27 @@ device_classes:
                   RRA:LAST:0.5:6:600
                   RRA:LAST:0.5:24:600
                   RRA:LAST:0.5:288:600'
+        thresholds:
+          missing_barcode:
+            dsnames: [order_missing_barcode]
+            eventClass: /Status/App/Delivery/Order/
+            severity: CRITICAL
+            maxval: 0.1
+          missing_deposit:
+            dsnames: [order_missing_deposit]
+            eventClass: /Status/App/Delivery/Order/
+            severity: CRITICAL
+            maxval: 0.1
+          missing_validation:
+            dsnames: [order_missing_validation]
+            eventClass: /Status/App/Delivery/Order/
+            severity: CRITICAL
+            maxval: 0.1
+          validation_error:
+            dsnames: [order_validation_error]
+            eventClass: /Status/App/Delivery/Order/
+            severity: CRITICAL
+            maxval: 0.1
         graphs:
           Received:
             units: messages
@@ -566,6 +678,12 @@ device_classes:
                 rrdtype: GAUGE
               threads:
                 rrdtype: GAUGE
+        thresholds:
+          heap_memory:
+            dsnames: [jvm_heap.used_percentage]
+            eventClass: /Status/App/
+            severity: ERROR
+            maxval: 90
         graphs:
           Classes:
             units: classes

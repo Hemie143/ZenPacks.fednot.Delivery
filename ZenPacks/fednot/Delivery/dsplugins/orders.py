@@ -109,7 +109,7 @@ class Orders(PythonDataSourcePlugin):
         total_metrics = 0
         for order in orders_data:
             order_status = str(order['status'])
-            order_value = order['count']
+            order_value = float(order['count'])
             data['values'][componentID][order_status.lower()] = order_value
             if order_status != 'TOTAL':
                 total_check += order_value

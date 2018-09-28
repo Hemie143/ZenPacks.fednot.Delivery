@@ -40,7 +40,6 @@ class MetricsJob(PythonDataSourcePlugin):
 
     def collect(self, config):
         log.debug('Starting Delivery Jobs collect')
-        # TODO : cleanup job collect
         # TODO : switch to twisted.web.client.Agent, getPage is becoming Deprecated
         # http://twisted.readthedocs.io/en/twisted-17.9.0/web/howto/client.html
 
@@ -75,7 +74,6 @@ class MetricsJob(PythonDataSourcePlugin):
 
 class Jobs(MetricsJob):
 
-    # TODO: check config_key
     @classmethod
     def config_key(cls, datasource, context):
         log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
@@ -103,8 +101,8 @@ class Jobs(MetricsJob):
         log.debug('Success job - result is {}'.format(result))
         # TODO : cleanup job onSuccess
 
-        status_maps = {'DONE': [0, 'Job {} ({} on {}) is OK'],
-                       'ERROR': [5, 'Job {} ({} on {}) is in error']
+        status_maps = {'DONE': [0, 'Job {} ({} on {}) is OK with zip: {}'],
+                       'ERROR': [5, 'Job {} ({} on {}) is in error with zip: {}']
                        }
 
         data = self.new_data()
@@ -150,17 +148,17 @@ class Jobs(MetricsJob):
             job_age = (float(timestamp_now) - float(last_job['timestamp'])) / 60.0
             job_status_map = status_maps.get(job_status, [3, 'Job {} ({} on {}) has an unknown issue'])
             data['values'][componentID]['status'] = job_status_map[0]
-            msg = job_status_map[1].format(jobName, applicationName, hostingServer)
+            zip_name = last_job['zipName']
+            msg = job_status_map[1].format(jobName, applicationName, hostingServer, zip_name)
             data['events'].append({
                 'device': config.id,
                 'component': componentID,
                 'severity': job_status_map[0],
                 'eventKey': 'JobHealth',
-                'eventClassKey': 'JobHealth',
                 'summary': msg,
                 'message': msg,
-                'eventClass': '/Status/App',
-                'zipName': last_job['zipName']
+                'eventClass': '/Status/App/Delivery/Job',
+                'zipName': zip_name
             })
             data['values'][componentID]['age'] = job_age
             data['values'][componentID]['dataCount'] = last_job['dataCount']
@@ -203,15 +201,8 @@ class Zips(MetricsJob):
         return params
 
     def onSuccess(self, result, config):
-        ' This one is running once per application'
+        """ This one is running once per application"""
         log.debug('Success job - result is {}'.format(result))
-        # TODO : cleanup job onSuccess
-        '''
-        {"zipName":"Fednot_1533306600118","status":"DONE","dataCount":1,"missingCount":0,"jobName":"depositJob",
-            "runDate":{"hour":8,"minute":0,"second":0,"nano":57000000,"year":2018,"month":"AUGUST","dayOfYear":216,
-            "dayOfWeek":"SATURDAY","dayOfMonth":4,"monthValue":8,"chronology":{"calendarType":"iso8601","id":"ISO"}}}
-        '''
-
         data = self.new_data()
         ds_data = {}
         count = 0
