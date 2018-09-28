@@ -103,6 +103,14 @@ event_classes:
 
   /Status/App/Delivery/Order/:
     remove: False
+    transform: |+
+      if 'order_validation_error' in evt.eventKey:
+          value = float(evt.current)
+          component_name = component.name()
+          msg = '{} - There are {} validation errors'.format(component_name, int(value))
+          evt.message = msg
+          evt.summary = msg
+
 
 classes:
   SpringBootDevice:
@@ -567,22 +575,22 @@ device_classes:
         thresholds:
           missing_barcode:
             dsnames: [order_missing_barcode]
-            eventClass: /Status/App/Delivery/Order/
+            eventClass: /Status/App/Delivery/Order
             severity: CRITICAL
             maxval: 0.1
           missing_deposit:
             dsnames: [order_missing_deposit]
-            eventClass: /Status/App/Delivery/Order/
+            eventClass: /Status/App/Delivery/Order
             severity: CRITICAL
             maxval: 0.1
           missing_validation:
             dsnames: [order_missing_validation]
-            eventClass: /Status/App/Delivery/Order/
+            eventClass: /Status/App/Delivery/Order
             severity: CRITICAL
             maxval: 0.1
           validation_error:
             dsnames: [order_validation_error]
-            eventClass: /Status/App/Delivery/Order/
+            eventClass: /Status/App/Delivery/Order
             severity: CRITICAL
             maxval: 0.1
         graphs:
@@ -681,7 +689,7 @@ device_classes:
         thresholds:
           heap_memory:
             dsnames: [jvm_heap.used_percentage]
-            eventClass: /Status/App/
+            eventClass: /Status/App
             severity: ERROR
             maxval: 90
         graphs:

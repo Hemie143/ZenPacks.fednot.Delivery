@@ -247,7 +247,7 @@ class Zips(MetricsJob):
             if zip_list == []:          # Component has no entry in JSON output
                 data['values'][componentID]['dataCount'] = 0
                 data['values'][componentID]['missingCount'] = 0
-                msg = 'Zip {} ({} on {}) has been removed'.format(componentID, applicationName, hostingServer)
+                msg = 'Zip {} ({} on {}) has been removed'.format(zipName, applicationName, hostingServer)
                 data['events'].append({
                     'device': config.id,
                     'component': componentID,
@@ -270,10 +270,10 @@ class Zips(MetricsJob):
             # If any value in missingCountSet is different from zero, some data has been lost
             if len(dataCountSet) > 1 or not(0 in missingCountSet):
                 sev = 4
-                msg = 'Zip {} ({} on {}) has lost messages'.format(componentID, applicationName, hostingServer)
+                msg = 'Zip {} ({} on {}) has lost messages'.format(zipName, applicationName, hostingServer)
             else:
                 sev = 0
-                msg = 'Zip {} ({} on {}) is OK'.format(componentID, applicationName, hostingServer)
+                msg = 'Zip {} ({} on {}) is OK'.format(zipName, applicationName, hostingServer)
 
             data['values'][componentID]['zip_status'] = sev
             data['values'][componentID]['dataCount'] = max(dataCountSet)
