@@ -110,6 +110,24 @@ event_classes:
           msg = '{} - There are {} validation errors'.format(component_name, int(value))
           evt.message = msg
           evt.summary = msg
+      elif 'order_missing_validation' in evt.eventKey:
+          value = float(evt.current)
+          component_name = component.name()
+          msg = '{} - There are {} validations missing'.format(component_name, int(value))
+          evt.message = msg
+          evt.summary = msg
+      elif 'order_missing_barcode' in evt.eventKey:
+          value = float(evt.current)
+          component_name = component.name()
+          msg = '{} - There are {} barcodes missing'.format(component_name, int(value))
+          evt.message = msg
+          evt.summary = msg
+      elif 'order_missing_deposit' in evt.eventKey:
+          value = float(evt.current)
+          component_name = component.name()
+          msg = '{} - There are {} deposits missing'.format(component_name, int(value))
+          evt.message = msg
+          evt.summary = msg
 
 
 classes:
