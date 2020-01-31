@@ -46,7 +46,7 @@ class Health(PythonDataSourcePlugin):
 
     @classmethod
     def params(cls, datasource, context):
-        log.info('BBB Starting Delivery health params')
+        log.info('Starting Delivery health params')
         params = {}
         params['hostingServer'] = context.hostingServer
         params['serviceURL'] = context.serviceURL
